@@ -1,150 +1,186 @@
 # UIS Event-Automation Hub
 
-Automates the creation, management, and distribution of events for **United Italian Societies** (and, in the future, for any non-profit community).  
-The Hub receives a single submission (form or API) and generates, in a few seconds:
+AI-Powered Event Management Platform for United Italian Societies
+Automates the complete event lifecycle from volunteer form submission to multi-channel promotion using LangGraph AI agents and OpenRouter LLM integration. Volunteers fill a simple multi-step form, and AI agents handle the rest: flyer design, social media content, scheduling, and asset management.
 
-1. Brand-compliant flyer via Canva API  
-2. Pre-formatted WhatsApp message  
-3. Newsletter draft (Mailchimp Campaign Draft)  
-4. Operational task in ClickUp with pre-populated checklist  
-5. Google Calendar event (UIS team)  
-6. Drive folder with all assets
+> **Goal**: Reduce "idea → published promotion" time to under 10 minutes with AI-generated content and automated workflows, while maintaining human oversight for quality control.
 
-> **Goal**: reduce the "idea → published promotion" time to under 10 minutes, prevent manual errors, and track all KPIs in a centralized way.
+For Volunteers
 
----
+- Multi-step Form Wizard: Intuitive interface for event creation
+- AI Content Generation: Automated flyer, social media captions, and WhatsApp messages
+- Real-time Progress: Live updates on AI agent workflow
+- Human Review: Approve/edit generated content before publishing
+- One-click Deployment: Automatic scheduling and asset distribution
 
-## Tech Stack
+AI Automation Pipeline
 
-| Area                     | Choice                        | Reason                                      |
-| ------------------------ | ---------------------------- | ------------------------------------------- |
-| Runtime                  | Node 20 + TypeScript          | Rich ecosystem of official SDKs            |
-| API server               | Express                       | Simple, plug-and-play with CURSOR          |
-| DB / State Management    | None (stateless)              | Orchestration via webhooks; Redis if needed |
-| Front-end (optional)     | Next.js 14 + Tailwind         | Wizard form, Google auth                   |
-| Automation               | Zapier / n8n (for external triggers) | Low-code fallback                     |
-| CI/CD                    | GitHub Actions → Docker + Render.com | Fast, free deployment                |
-| Copilot                  | CURSOR                        | AI pair-programming, fast refactoring      |
+1. 🎨 Canva Flyer Generation - Brand-compliant designs via AI instructions
+2. 📱 Social Media Content - Instagram & LinkedIn captions optimized for engagement
+3. 💬 WhatsApp Broadcasting - Community-friendly messages with proper structure
+4. 📅 Calendar Integration - Google Calendar events for team coordination
+5. 📋 Task Management - ClickUp tasks with automated checklists
+6. 💾 Asset Management - Organized Google Drive folders with all materials
 
----
-
-## High-level Architecture
-
-## API Flow
-
-Form ➜ `/api/v1/event` (Express)  
-├─▶ **CanvaService** ➜ poster PNG public URL  
-├─▶ **WhatsAppService** ➜ broadcast message  
-├─▶ **MailService** ➜ campaign draft  
-├─▶ **ClickUpService** ➜ task + checklist  
-├─▶ **DriveService** ➜ folder + assets  
-└─▶ **CalendarService** ➜ Google Calendar entry
-
-
-
-Tutte le chiamate sono orchestrate da **EventFlowOrchestrator** (pattern façade + retry/back-off in caso di errori API).
+🏗️ Architecture
+graph TD
+    A[Volunteer Browser] --> B[Next.js Form Wizard]
+    B --> C[Express API Server]
+    C --> D[Redis Session Store]
+    C --> E[LangGraph Agent System]
+    E --> F[Event Planning Agent]
+    F --> G[Content Creation Agents]
+    G --> H[Canva Agent]
+    G --> I[Social Media Agent] 
+    G --> J[WhatsApp Agent]
+    H --> K[Service Integration Layer]
+    I --> K
+    J --> K
+    K --> L[External APIs]
+    L --> M[Google Drive/Calendar]
+    L --> N[ClickUp]
+    L --> O[Canva API]
 
 ---
 
-## Requisiti
+## 🛠️ Tech Stack
 
-* Node ≥ 20, pnpm ≥ 9  
-* Account Canva Teams (API token)  
-* Google Cloud service account con scope Drive + Calendar  
-* ClickUp API token (Spazio «EVENTI 24-25»)  
-* Mailchimp API key / Server prefix  
-* WhatsApp Business session (whatsapp-web.js)  
-* (Opz.) Buffer / Hootsuite token per social scheduling
+| Component        | Technology                                 | Purpose                                               |
+| ---------------- | ------------------------------------------ | ----------------------------------------------------- |
+| **Frontend**      | Next.js 14 + TypeScript + Tailwind          | Multi-step form wizard                                |
+| **Backend API**   | Express + TypeScript                        | Form handling & session management                     |
+| **AI Framework**  | LangGraph + FastAPI + Python                | Agent orchestration & workflow                         |
+| **LLM Provider**  | OpenRouter API                              | Flexible model selection (GPT-4o, Claude, etc.)       |
+| **State Management** | Redis + PostgreSQL                       | Session state & event history                          |
+| **UI Components** | Shadcn/ui + Radix UI                        | Modern, accessible interface                           |
+| **Deployment**    | Heroku (Multi-buildpack)                    | Volunteer platform access                              |
+| **External APIs** | Google Workspace, Canva, ClickUp            | Service integrations                                   |
+
 
 ---
 
-## Quick start (dev)
+## 🌱 Environment Setup
+
+### 1. Clone and install dependencies
 
 ```bash
 git clone https://github.com/UIS-org/event-automation-hub.git
 cd event-automation-hub
-cp .env.example .env   # ↖ inserisci le chiavi
-pnpm i
-pnpm dev               # nodemon + ts-node
+cp .env.example .env
 
+```
 
----
+### 2. Configure Env variables
 
-#ENV variables
-GOOGLE_SERVICE_ACCOUNT_JSON=...
-CANVA_API_TOKEN=...
-MAILCHIMP_API_KEY=...
-MAILCHIMP_SERVER_PREFIX=eu21
-WHATSAPP_SESSION=        # lasciato vuoto la prima volta
-CLICKUP_API_TOKEN=...
-BUFFER_API_TOKEN=...
-PORT=4000
+```bash
+pnpm install
+pip install -r requirements.txt
 
-## npm Scripts
+OPENROUTER_API_KEY=your_openrouter_key
+OPENROUTER_MODEL=openai/gpt-4o
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
 
-| Command            | Description                                   |
-| ------------------ | --------------------------------------------- |
-| `pnpm dev`         | Starts the API with hot-reload                 |
-| `pnpm test`        | Runs `vitest` + coverage                       |
-| `pnpm lint`        | Runs ESLint and Prettier                       |
-| `pnpm build`       | Transpiles code to `dist/`                     |
-| `pnpm start`       | Starts the server from the compiled output     |
+GOOGLE_SERVICE_ACCOUNT_JSON=base64_encoded_key
+CANVA_API_TOKEN=your_canva_token
+CLICKUP_API_TOKEN=your_clickup_token
 
----
+```
+### 3. Initialize database
 
-## Roadmap MVP
+```bash
+pnpm db:push
+pnpm db:seed
 
-| Sprint   | Focus                                                    |
-| -------- | -------------------------------------------------------- |
-| Sprint 1 | Webhook, DriveService, CanvaService, basic orchestrator   |
-| Sprint 2 | WhatsApp + ClickUp + Google Calendar                     |
-| Sprint 3 | Next.js wizard front-end, Google authentication          |
-| Sprint 4 | VAT-router, Buffer, BigQuery metrics                      |
-| Pilot    | Rollout in London/Zurich, KPI collection                 |
+```
 
----
+### 4. Start development servers
 
-## Contributing
-
-- Fork the repo + create a branch with `feat/` or `fix/` prefix
-- Add tests (`vitest`) for any services you touch
-- Open a Pull Request describing:
-  - **What** you did
-  - **Why** you did it
-  - **Screenshot** (if UI changes)
-- Owners will review your code asynchronously (within 48h)
+```bash
+pnpm dev  # Starts frontend, API, and AI agents concurrently
+```
 
 ## Folder / File Structure (First Commit)
 
 event-automation-hub/
-├─ .env.example
-├─ .gitignore
-├─ README.md
-├─ package.json
-├─ pnpm-lock.yaml
-├─ tsconfig.json
-├─ src/
-│ ├─ index.ts # Bootstrap Express
-│ ├─ routes/
-│ │ └─ webhook.ts # POST /v1/event
-│ ├─ orchestrator/
-│ │ └─ event-flow.ts # EventFlowOrchestrator class
-│ ├─ services/
-│ │ ├─ canva.service.ts
-│ │ ├─ whatsapp.service.ts
-│ │ ├─ mail.service.ts
-│ │ ├─ clickup.service.ts
-│ │ ├─ drive.service.ts
-│ │ └─ gcal.service.ts
-│ ├─ shared/
-│ │ └─ dto/
-│ │ └─ event.ts # EventDTO interface
-│ ├─ templates/
-│ │ ├─ whatsapp.ejs
-│ │ └─ newsletter.ejs
-│ └─ logger.ts
-├─ tests/
-│ ├─ drive.service.spec.ts
-│ └─ canva.service.spec.ts
-└─ storage/ # Ignored in git, for WhatsApp sessions
-└─ .gitkeep
+├── 🎨 frontend/                    # Next.js application
+│   ├── app/
+│   │   ├── create-event/           # Multi-step form wizard
+│   │   ├── dashboard/              # Event management dashboard
+│   │   └── api/                    # API routes
+│   ├── components/                 # Reusable UI components
+│   ├── hooks/                      # Custom React hooks
+│   └── lib/                        # Utilities and configurations
+├── 🔧 backend/                     # Express API server
+│   ├── src/
+│   │   ├── routes/                 # REST API endpoints
+│   │   ├── middleware/             # Authentication, validation
+│   │   ├── services/               # External service integrations
+│   │   └── utils/                  # Helper functions
+├── 🤖 agents/                      # LangGraph AI agent system
+│   ├── orchestrator/               # Main workflow orchestration
+│   ├── content_agents/             # Content creation agents
+│   ├── service_agents/             # External service agents
+│   ├── prompts/                    # LLM prompt templates
+│   └── tools/                      # Agent tools and utilities
+├── 📊 database/                    # Database schema and migrations
+│   ├── migrations/                 # Prisma migrations
+│   ├── schema.prisma              # Database schema
+│   └── seed/                       # Development data
+├── 🧪 tests/                       # Test suites
+│   ├── frontend/                   # Frontend component tests
+│   ├── backend/                    # API endpoint tests
+│   └── agents/                     # AI agent tests
+└── 📦 shared/                      # Shared types and utilities
+    ├── types/                      # TypeScript interfaces
+    └── constants/                  # Application constants
+
+
+## AI Agent Workflow
+
+### 1. Form Submission Processing
+
+```typescript
+interface EventFormData {
+  eventType: 'community' | 'speaker';
+  title: string;
+  description: string;
+  date: Date;
+  location: LocationInfo;
+  ticketInfo: TicketInfo;
+  contentPreferences: ContentPreferences;
+}
+```
+
+### 2.AI Agent Pipeline
+
+```python
+# LangGraph workflow
+workflow_steps = [
+  "validate_input",     # Validate form data
+  "create_flyer",       # Generate Canva design
+  "create_captions",    # Social media content
+  "create_whatsapp",    # WhatsApp message
+  "human_review",       # Volunteer approval
+  "schedule_calendar",  # Google Calendar
+  "create_task",        # ClickUp task
+  "save_assets"         # Drive organization
+]
+```
+
+## 3. Human Review Interface
+
+- **Real-time Progress**: Live updates on agent status
+- **Content Preview**: Review generated flyers and captions
+- **Edit Capabilities**: Modify AI-generated content
+- **Approval Workflow**: One-click approval or revision requests
+
+---
+
+## 🔐 Security & Privacy
+
+- **API Key Rotation**: Support for multiple valid keys
+- **Input Validation**: Strict form data sanitization
+- **Rate Limiting**: Per-volunteer and per-IP restrictions
+- **Audit Logging**: Complete workflow tracking
+- **Data Encryption**: All sensitive data encrypted at rest
