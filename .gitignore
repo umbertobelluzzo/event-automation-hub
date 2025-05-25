@@ -1,7 +1,4 @@
-The issue is that node_modules folders aren't actually tracked by Git (which is good!), but the pnpm-lock.yaml file is being tracked and has 10k changes. Here's how to fix this:
-Step 1: Update your .gitignore
-Your .gitignore needs more entries. Replace the content with:
-bash# Dependencies
+#Dependencies
 node_modules/
 */node_modules/
 **/node_modules/
