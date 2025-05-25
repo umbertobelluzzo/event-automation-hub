@@ -1,0 +1,126 @@
+{
+    "name": "uis-event-automation-hub",
+    "version": "1.0.0",
+    "description": "AI-powered event management platform for United Italian Societies",
+    "private": true,
+    "engines": {
+      "node": ">=20.0.0",
+      "pnpm": ">=9.0.0",
+      "python": ">=3.11.0"
+    },
+    "workspaces": [
+      "frontend",
+      "backend",
+      "database",
+      "shared"
+    ],
+    "scripts": {
+      "dev": "concurrently \"pnpm dev:frontend\" \"pnpm dev:backend\" \"pnpm dev:agents\" --names \"FRONTEND,BACKEND,AGENTS\" --prefix-colors \"cyan,yellow,magenta\"",
+      "dev:frontend": "cd frontend && pnpm dev",
+      "dev:backend": "cd backend && pnpm dev",
+      "dev:agents": "cd agents && python -m uvicorn main:app --reload --port 8000",
+      "build": "pnpm build:shared && pnpm build:backend && pnpm build:frontend",
+      "build:frontend": "cd frontend && pnpm build",
+      "build:backend": "cd backend && pnpm build",
+      "build:shared": "cd shared && pnpm build || echo 'No build needed for shared'",
+      "start": "pnpm start:production",
+      "start:production": "concurrently \"pnpm start:frontend\" \"pnpm start:backend\" \"pnpm start:agents\" --names \"FRONTEND,BACKEND,AGENTS\" --prefix-colors \"cyan,yellow,magenta\"",
+      "start:frontend": "cd frontend && pnpm start",
+      "start:backend": "cd backend && pnpm start",
+      "start:agents": "cd agents && python -m uvicorn main:app --host 0.0.0.0 --port 8000",
+      "test": "pnpm test:frontend && pnpm test:backend && pnpm test:agents",
+      "test:frontend": "cd frontend && pnpm test",
+      "test:backend": "cd backend && pnpm test",
+      "test:agents": "cd agents && python -m pytest",
+      "test:watch": "concurrently \"pnpm test:frontend:watch\" \"pnpm test:backend:watch\" --names \"FRONTEND,BACKEND\" --prefix-colors \"cyan,yellow\"",
+      "test:frontend:watch": "cd frontend && pnpm test:watch",
+      "test:backend:watch": "cd backend && pnpm test:watch",
+      "test:coverage": "pnpm test:frontend:coverage && pnpm test:backend:coverage && pnpm test:agents:coverage",
+      "test:frontend:coverage": "cd frontend && pnpm test --coverage",
+      "test:backend:coverage": "cd backend && pnpm test --coverage",
+      "test:agents:coverage": "cd agents && python -m pytest --cov=. --cov-report=html",
+      "lint": "pnpm lint:frontend && pnpm lint:backend && pnpm lint:agents",
+      "lint:frontend": "cd frontend && pnpm lint",
+      "lint:backend": "cd backend && pnpm lint",
+      "lint:agents": "cd agents && python -m flake8 . && python -m black --check .",
+      "lint:fix": "pnpm lint:frontend:fix && pnpm lint:backend:fix && pnpm lint:agents:fix",
+      "lint:frontend:fix": "cd frontend && pnpm lint:fix",
+      "lint:backend:fix": "cd backend && pnpm lint:fix",
+      "lint:agents:fix": "cd agents && python -m black . && python -m isort .",
+      "type-check": "pnpm type-check:frontend && pnpm type-check:backend",
+      "type-check:frontend": "cd frontend && pnpm type-check",
+      "type-check:backend": "cd backend && pnpm type-check",
+      "db:generate": "cd database && pnpm db:generate",
+      "db:push": "cd database && pnpm db:push",
+      "db:migrate": "cd database && pnpm db:migrate",
+      "db:migrate:deploy": "cd database && pnpm db:migrate:deploy",
+      "db:seed": "cd database && pnpm db:seed",
+      "db:studio": "cd database && pnpm db:studio",
+      "db:reset": "cd database && pnpm db:reset && pnpm db:seed",
+      "db:setup": "pnpm db:generate && pnpm db:push && pnpm db:seed",
+      "setup": "./scripts/setup.sh",
+      "setup:dev": "pnpm install && pnpm db:setup",
+      "clean": "pnpm clean:frontend && pnpm clean:backend && pnpm clean:agents",
+      "clean:frontend": "cd frontend && rm -rf .next node_modules && pnpm install",
+      "clean:backend": "cd backend && rm -rf dist node_modules && pnpm install",
+      "clean:agents": "cd agents && find . -type d -name __pycache__ -exec rm -rf {} + || true",
+      "docker:dev": "docker-compose up --build",
+      "docker:prod": "docker build -t uis-event-hub . && docker run -p 3000:3000 uis-event-hub",
+      "heroku:deploy": "git push heroku main",
+      "heroku:logs": "heroku logs --tail",
+      "heroku:config": "heroku config",
+      "prepare": "husky install || true",
+      "postinstall": "pnpm db:generate || echo 'Database not available during install'"
+    },
+    "dependencies": {
+      "concurrently": "^8.2.2"
+    },
+    "devDependencies": {
+      "@types/node": "^20.10.0",
+      "typescript": "^5.3.0",
+      "husky": "^8.0.3",
+      "lint-staged": "^15.2.0",
+      "prettier": "^3.1.0"
+    },
+    "lint-staged": {
+      "*.{js,jsx,ts,tsx}": [
+        "eslint --fix",
+        "prettier --write"
+      ],
+      "*.{json,md,yml,yaml}": [
+        "prettier --write"
+      ],
+      "*.py": [
+        "black",
+        "isort"
+      ]
+    },
+    "husky": {
+      "hooks": {
+        "pre-commit": "lint-staged",
+        "pre-push": "pnpm type-check && pnpm test"
+      }
+    },
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/UIS-org/event-automation-hub.git"
+    },
+    "keywords": [
+      "event-management",
+      "ai-automation",
+      "langgraph",
+      "openrouter",
+      "nextjs",
+      "express",
+      "typescript",
+      "prisma",
+      "italian-community"
+    ],
+    "author": "United Italian Societies",
+    "license": "MIT",
+    "bugs": {
+      "url": "https://github.com/UIS-org/event-automation-hub/issues"
+    },
+    "homepage": "https://github.com/UIS-org/event-automation-hub#readme"
+  }
+  

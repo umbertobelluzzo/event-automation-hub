@@ -1,0 +1,25 @@
+build:
+  languages:
+    - nodejs
+    - python
+  packages:
+    - plan: standard-0
+      as: DATABASE_URL
+    - plan: premium-0  
+      as: REDIS_URL
+setup:
+  addons:
+    - plan: heroku-postgresql:standard-0
+      as: DATABASE
+    - plan: heroku-redis:premium-0
+      as: REDIS
+  config:
+    NODE_ENV: production
+    PYTHON_ENV: production
+    NPM_CONFIG_PRODUCTION: false
+    YARN_PRODUCTION: false
+build:
+  docker:
+    web: Dockerfile
+run:
+  web: npm run start:production

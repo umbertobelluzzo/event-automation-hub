@@ -1,0 +1,7 @@
+# =============================================================================
+# Procfile - Heroku Process Configuration
+# =============================================================================
+web: cd frontend && npm run build && npm start
+api: cd backend && npm run build && npm start
+worker: cd agents && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+

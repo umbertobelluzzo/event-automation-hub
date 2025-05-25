@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// User Management
+// =============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(VOLUNTEER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  events          Event[]
+  workflowSessions WorkflowSession[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  ORGANIZER
+  VOLUNTEER
+}
+
+// =============================================================================
+// Event Management
+// =============================================================================
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  slug        String    @unique
+  
+  // Event Details
+  eventType   EventType
+  startDate   DateTime
+  endDate     DateTime?
+  timezone    String    @default("Europe/London")
+  
+  // Location
+  locationName    String
+  locationAddress String
+  isOnline        Boolean @default(false)
+  meetingLink     String?
+  coordinates     Json?   // {lat: number, lng: number}
+  
+  // Ticketing
+  isFree              Boolean @default(true)
+  ticketPrice         Float?
+  registrationRequired Boolean @default(false)
+  maxAttendees        Int?
+  currentAttendees    Int     @default(0)
+  
+  // Event Status
+  status      EventStatus @default(DRAFT)
+  isPublished Boolean     @default(false)
+  publishedAt DateTime?
+  
+  // Metadata
+  tags        String[]
+  customFields Json?      // Flexible additional data
+  
+  // Tracking
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  creator          User              @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  generatedContent GeneratedContent?
+  workflowSessions WorkflowSession[]
+
+  @@map("events")
+}
+
+enum EventType {
+  COMMUNITY
+  SPEAKER
+  NETWORKING
+  CULTURAL
+  EDUCATIONAL
+  SOCIAL
+}
+
+enum EventStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+// =============================================================================
+// AI-Generated Content Management
+// =============================================================================
+
+model GeneratedContent {
+  id      String @id @default(cuid())
+  eventId String @unique
+  
+  // Generated Assets
+  flyerUrl          String?
+  flyerCanvaId      String?
+  instagramCaption  String?
+  linkedinCaption   String?
+  whatsappMessage   String?
+  
+  // External Service IDs
+  googleCalendarId String?
+  clickupTaskId    String?
+  driveFolder      String?
+  driveFolderUrl   String?
+  
+  // Content Preferences (used for regeneration)
+  flyerStyle      String? // 'professional' | 'casual' | 'festive'
+  targetAudience  String[]
+  keyMessages     String[]
+  socialTone      String? // 'formal' | 'friendly' | 'enthusiastic'
+  
+  // Generation Metadata
+  generatedAt     DateTime @default(now())
+  lastRegenerated DateTime?
+  generationCount Int      @default(1)
+  
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("generated_content")
+}
+
+// =============================================================================
+// AI Workflow Management
+// =============================================================================
+
+model WorkflowSession {
+  id        String @id @default(cuid())
+  sessionId String @unique // For Redis session correlation
+  
+  // Session Details
+  eventId String?
+  userId  String
+  status  WorkflowStatus @default(PENDING)
+  
+  // Workflow Progress
+  currentStep     String?
+  completedSteps  String[]
+  failedSteps     String[]
+  
+  // Processing Metadata
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+  estimatedEndTime DateTime?
+  errorMessage     String?
+  retryCount       Int       @default(0)
+  
+  // AI Configuration
+  llmModel    String @default("openai/gpt-4o")
+  agentConfig Json?  // Agent-specific configuration
+  
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("workflow_sessions")
+}
+
+enum WorkflowStatus {
+  PENDING
+  IN_PROGRESS
+  WAITING_APPROVAL
+  APPROVED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// =============================================================================
+// System Configuration & Monitoring
+// =============================================================================
+
+model SystemConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  eventId   String?
+  sessionId String?
+  
+  action      String // 'event_created', 'workflow_started', 'content_generated', etc.
+  entityType  String // 'event', 'workflow', 'user', etc.
+  entityId    String?
+  
+  // Change Details
+  beforeData Json?
+  afterData  Json?
+  
+  // Request Context
+  ipAddress  String?
+  userAgent  String?
+  
+  timestamp DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// Analytics & Metrics
+// =============================================================================
+
+model EventMetrics {
+  id      String @id @default(cuid())
+  eventId String
+  
+  // Engagement Metrics
+  views           Int @default(0)
+  registrations   Int @default(0)
+  actualAttendees Int @default(0)
+  
+  // Social Media Metrics
+  instagramLikes  Int @default(0)
+  instagramShares Int @default(0)
+  linkedinViews   Int @default(0)
+  linkedinLikes   Int @default(0)
+  
+  // Workflow Metrics
+  generationTimeMs    Int?
+  humanReviewTimeMs   Int?
+  totalProcessingTime Int?
+  
+  // Timestamps
+  recordedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("event_metrics")
+}
+
+model WorkflowMetrics {
+  id        String @id @default(cuid())
+  sessionId String @unique
+  
+  // Performance Metrics
+  totalDurationMs      Int?
+  aiProcessingTimeMs   Int?
+  humanReviewTimeMs    Int?
+  serviceCallsCount    Int @default(0)
+  failedServiceCalls   Int @default(0)
+  
+  // Cost Tracking
+  llmTokensUsed    Int?
+  estimatedCostUsd Float?
+  
+  // Quality Metrics
+  humanApprovalRate Float? // 0.0 to 1.0
+  regenerationCount Int    @default(0)
+  
+  recordedAt DateTime @default(now())
+
+  @@map("workflow_metrics")
+}
