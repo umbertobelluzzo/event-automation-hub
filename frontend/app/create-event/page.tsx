@@ -1,9 +1,20 @@
 import React from 'react';
 import { Metadata } from 'next';
-
+import { MainLayout } from '@/components/layout/main-layout';
 import { FormWizard } from '@/components/forms/form-wizard';
 import { FormWizardProvider } from '@/hooks/use-form-wizard-context';
 import { useFormWizard } from '@/hooks/use-form-wizard';
+
+
+export default function CreateEventPage() {
+  return (
+    <MainLayout>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <CreateEventPageContent />
+      </div>
+    </MainLayout>
+  );
+}
 
 export const metadata: Metadata = {
   title: 'Create New Event | UIS Event Hub',
