@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Palette, Users, MessageSquare, Sparkles, Plus, X, Image } from 'lucide-react';
 

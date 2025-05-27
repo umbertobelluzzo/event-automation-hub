@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useContext } from 'react';
 import { EventFormData, FormValidationError } from '@/shared/types';
 
@@ -45,11 +47,13 @@ interface FormWizardProviderProps {
 export const FormWizardProvider: React.FC<FormWizardProviderProps> = ({
   children,
   value,
-}) => (
-  <FormWizardContext.Provider value={value}>
-    {children}
-  </FormWizardContext.Provider>
-);
+}) => {
+  return (
+    <FormWizardContext.Provider value={value}>
+      {children}
+    </FormWizardContext.Provider>
+  );
+};
 
 // =============================================================================
 // Context Hook

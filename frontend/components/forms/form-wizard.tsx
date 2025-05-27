@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { CheckCircle, Circle, AlertCircle } from 'lucide-react';
 
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { useFormWizard } from '@/hooks/use-form-wizard';
+import useFormWizard from '@/hooks/useFormWizard';
 
 // Step Components
 import { EventBasicsStep } from './steps/event-basics-step';

@@ -1,3 +1,4 @@
+"use client";
 import { useState, useCallback, useEffect } from 'react';
 import { EventFormData, FormStepInfo, FormValidationError } from '@/shared/types';
 
@@ -101,7 +102,7 @@ export interface UseFormWizardReturn {
   getCurrentStepData: () => Partial<EventFormData>;
 }
 
-export const useFormWizard = (): UseFormWizardReturn => {
+const useFormWizard = (): UseFormWizardReturn => {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<EventFormData>(getDefaultFormData);
   const [errors, setErrors] = useState<FormValidationError[]>([]);
@@ -320,6 +321,17 @@ export const useFormWizard = (): UseFormWizardReturn => {
     }
   }, [currentStep, formData]);
 
+  useEffect(() => {
+    // Optional: Clear errors for the current step when form data for that step changes
+    // This provides a better UX as errors disappear when the user starts correcting them.
+    const currentStepErrors = errors.filter(e => e.step === currentStep);
+    if (currentStepErrors.length > 0) {
+      const stillValidErrors = validateStep(currentStep, formData);
+      const otherStepErrors = errors.filter(e => e.step !== currentStep);
+      setErrors([...otherStepErrors, ...stillValidErrors]);
+    }
+  }, [formData, currentStep, errors, validateStep]);
+
   return {
     // Current state
     currentStep,
@@ -344,3 +356,5 @@ export const useFormWizard = (): UseFormWizardReturn => {
     getCurrentStepData,
   };
 };
+
+export default useFormWizard;
