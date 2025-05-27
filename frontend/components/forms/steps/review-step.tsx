@@ -20,6 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn, formatDate, formatCurrency } from '@/lib/utils';
 import { useFormWizardContext } from '@/hooks/use-form-wizard-context';
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 
 // =============================================================================
 // Review Section Component
@@ -435,7 +437,15 @@ const FinalSummary: React.FC<FinalSummaryProps> = ({ formData }) => (
 // =============================================================================
 
 export const ReviewStep: React.FC = () => {
-  const { formData, goToStep } = useFormWizardContext();
+  const {
+    formData,
+    goToStep,
+    updateFormData,
+  } = useFormWizardContext();
+
+  if (!formData) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">
@@ -473,31 +483,34 @@ export const ReviewStep: React.FC = () => {
       {/* Final Summary */}
       <FinalSummary formData={formData} />
 
-      {/* Terms and Conditions */}
-      <Card className="bg-gray-50">
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            <div className="flex items-start space-x-2">
-              <input
-                type="checkbox"
-                id="terms"
-                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2 mt-0.5"
-                required
-              />
-              <label htmlFor="terms" className="text-sm text-gray-700">
+      {/* Consent Checkboxes Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Final Confirmation</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start space-x-3">
+            <Checkbox 
+              id="consentDataAccuracy"
+              checked={formData.consentDataAccuracy}
+              onCheckedChange={(checked) => updateFormData({ consentDataAccuracy: !!checked })}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="consentDataAccuracy" className="font-medium">
                 I confirm that all the information provided is accurate and I have the authority to create this event on behalf of United Italian Societies.
-              </label>
+              </Label>
             </div>
-            <div className="flex items-start space-x-2">
-              <input
-                type="checkbox"
-                id="ai-consent"
-                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2 mt-0.5"
-                required
-              />
-              <label htmlFor="ai-consent" className="text-sm text-gray-700">
+          </div>
+          <div className="flex items-start space-x-3">
+            <Checkbox 
+              id="consentAiGeneration"
+              checked={formData.consentAiGeneration}
+              onCheckedChange={(checked) => updateFormData({ consentAiGeneration: !!checked })}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="consentAiGeneration" className="font-medium">
                 I consent to using AI to generate promotional materials for this event and understand that I can review and edit all generated content before publishing.
-              </label>
+              </Label>
             </div>
           </div>
         </CardContent>

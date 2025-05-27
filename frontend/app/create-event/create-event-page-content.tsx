@@ -7,10 +7,11 @@ import useFormWizard from '@/hooks/useFormWizard';
 
 const CreateEventPageContent: React.FC = () => {
   const formWizardProps = useFormWizard();
+  // console.log('[CreateEventPageContent] Rendering. formWizardProps.canProceed:', formWizardProps.canProceed, 'formWizardProps.errors:', formWizardProps.errors);
 
   return (
     <FormWizardProvider value={formWizardProps}>
-      <FormWizard />
+      <FormWizard {...formWizardProps} />
     </FormWizardProvider>
   );
 };

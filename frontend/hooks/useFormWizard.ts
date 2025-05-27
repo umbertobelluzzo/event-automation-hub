@@ -63,8 +63,8 @@ const getDefaultFormData = (): EventFormData => ({
   // Step 4: AI Content Preferences
   contentPreferences: {
     flyerStyle: 'professional',
-    targetAudience: [],
-    keyMessages: [],
+    targetAudience: ['general_public'],
+    keyMessages: ['Join us for a fun event!'],
     socialTone: 'friendly',
     includeLogo: true,
   },
@@ -72,6 +72,8 @@ const getDefaultFormData = (): EventFormData => ({
   // Step 5: Review & Metadata
   tags: [],
   isPublic: true,
+  consentDataAccuracy: false,
+  consentAiGeneration: false,
 });
 
 // =============================================================================
@@ -132,10 +134,7 @@ const useFormWizard = (): UseFormWizardReturn => {
         if (!data.startDate) {
           stepErrors.push({ field: 'startDate', message: 'Start date is required', step: 1 });
         }
-        if (data.startDate && data.startDate < new Date()) {
-          stepErrors.push({ field: 'startDate', message: 'Start date cannot be in the past', step: 1 });
-        }
-        if (data.endDate && data.endDate < data.startDate) {
+        if (data.endDate && data.startDate && data.endDate < data.startDate) {
           stepErrors.push({ field: 'endDate', message: 'End date cannot be before start date', step: 1 });
         }
         if (!data.location.name.trim()) {
@@ -167,7 +166,13 @@ const useFormWizard = (): UseFormWizardReturn => {
         }
         break;
 
-      case 4: // Review - No additional validation needed
+      case 4: // Review
+        if (!data.consentDataAccuracy) {
+          stepErrors.push({ field: 'consentDataAccuracy', message: 'You must confirm the accuracy of the information provided.', step: 4 });
+        }
+        if (!data.consentAiGeneration) {
+          stepErrors.push({ field: 'consentAiGeneration', message: 'You must consent to AI generating promotional materials.', step: 4 });
+        }
         break;
     }
 
@@ -176,13 +181,8 @@ const useFormWizard = (): UseFormWizardReturn => {
 
   const validateCurrentStep = useCallback((): boolean => {
     const stepErrors = validateStep(currentStep, formData);
-    
-    // Remove errors for other steps, keep only current step errors
-    const otherStepErrors = errors.filter(error => error.step !== currentStep);
-    setErrors([...otherStepErrors, ...stepErrors]);
-    
     return stepErrors.length === 0;
-  }, [currentStep, formData, errors, validateStep]);
+  }, [currentStep, formData, validateStep]);
 
   // =============================================================================
   // Step Management
@@ -196,7 +196,7 @@ const useFormWizard = (): UseFormWizardReturn => {
     if (validateCurrentStep() && currentStep < FORM_STEPS.length - 1) {
       setCurrentStep(prev => prev + 1);
     }
-  }, [currentStep, validateCurrentStep]);
+  }, [currentStep, validateCurrentStep, FORM_STEPS.length]);
 
   const prevStep = useCallback(() => {
     if (currentStep > 0) {
@@ -284,7 +284,7 @@ const useFormWizard = (): UseFormWizardReturn => {
     hasErrors: errors.some(error => error.step === index),
   }));
 
-  const canProceed = currentStep < FORM_STEPS.length - 1 && validateStep(currentStep, formData).length === 0;
+  const canProceed = currentStep < FORM_STEPS.length - 1 && errors.filter(e => e.step === currentStep).length === 0;
   const canGoBack = currentStep > 0;
 
   const getStepProgress = useCallback((): number => {
@@ -322,15 +322,16 @@ const useFormWizard = (): UseFormWizardReturn => {
   }, [currentStep, formData]);
 
   useEffect(() => {
-    // Optional: Clear errors for the current step when form data for that step changes
-    // This provides a better UX as errors disappear when the user starts correcting them.
-    const currentStepErrors = errors.filter(e => e.step === currentStep);
-    if (currentStepErrors.length > 0) {
-      const stillValidErrors = validateStep(currentStep, formData);
-      const otherStepErrors = errors.filter(e => e.step !== currentStep);
-      setErrors([...otherStepErrors, ...stillValidErrors]);
-    }
-  }, [formData, currentStep, errors, validateStep]);
+    const newStepErrors = validateStep(currentStep, formData);
+    setErrors(prevErrors => {
+      const otherStepErrors = prevErrors.filter(error => error.step !== currentStep);
+      const updatedErrors = [...otherStepErrors, ...newStepErrors];
+      if (JSON.stringify(updatedErrors) !== JSON.stringify(prevErrors)) {
+        return updatedErrors;
+      }
+      return prevErrors;
+    });
+  }, [formData, currentStep, validateStep]);
 
   return {
     // Current state

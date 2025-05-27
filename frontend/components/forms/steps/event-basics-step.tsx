@@ -153,7 +153,6 @@ const CharacterCounter: React.FC<CharacterCounterProps> = ({
 // =============================================================================
 
 export const EventBasicsStep: React.FC = () => {
-  // TODO: We'll create this context hook next
   const { formData, updateFormData, errors } = useFormWizardContext();
 
   const handleTypeChange = (eventType: EventType) => {

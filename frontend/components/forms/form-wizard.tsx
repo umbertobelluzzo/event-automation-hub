@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import useFormWizard from '@/hooks/useFormWizard';
+import { UseFormWizardReturn } from '@/hooks/useFormWizard';
 
 // Step Components
 import { EventBasicsStep } from './steps/event-basics-step';
@@ -97,6 +97,11 @@ interface NavigationButtonsProps {
   onBack: () => void;
   onNext: () => void;
   onSubmit: () => void;
+  errors: Array<{
+    field: string;
+    message: string;
+    step: number;
+  }>;
 }
 
 const NavigationButtons: React.FC<NavigationButtonsProps> = ({
@@ -107,40 +112,44 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
   onBack,
   onNext,
   onSubmit,
-}) => (
-  <div className="flex items-center justify-between pt-6 border-t">
-    <Button
-      type="button"
-      variant="outline"
-      onClick={onBack}
-      disabled={!canGoBack || isSubmitting}
-    >
-      Back
-    </Button>
-    
-    <div className="flex items-center space-x-2">
-      {isLastStep ? (
-        <Button
-          type="button"
-          variant="italian"
-          onClick={onSubmit}
-          disabled={!canProceed || isSubmitting}
-          className="min-w-32"
-        >
-          {isSubmitting ? 'Creating Event...' : 'Create Event'}
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          onClick={onNext}
-          disabled={!canProceed || isSubmitting}
-        >
-          Next Step
-        </Button>
-      )}
+  errors,
+}) => {
+  console.log('[NavigationButtons] Rendering. isLastStep:', isLastStep, 'errors.length:', errors.length, 'isSubmitting:', isSubmitting, 'canProceed:', canProceed);
+  return (
+    <div className="flex items-center justify-between pt-6 border-t">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onBack}
+        disabled={!canGoBack || isSubmitting}
+      >
+        Back
+      </Button>
+      
+      <div className="flex items-center space-x-2">
+        {isLastStep ? (
+          <Button
+            type="button"
+            variant="default"
+            onClick={onSubmit}
+            disabled={errors.length > 0 || isSubmitting}
+            className="min-w-32"
+          >
+            {isSubmitting ? 'Creating Event...' : 'Create Event'} 
+          </Button>
+        ) : (
+          <Button
+            type="button"        
+            onClick={onNext}     
+            disabled={!canProceed || isSubmitting}
+          >
+            Next Step        
+          </Button>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // =============================================================================
 // Error Display Component
@@ -178,23 +187,25 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ errors, currentStep }) => {
 };
 
 // =============================================================================
-// Main Form Wizard Component
+// Main Form Wizard Component - NOW ACCEPTS PROPS
 // =============================================================================
 
-export const FormWizard: React.FC = () => {
-  const {
-    currentStep,
-    steps,
-    errors,
-    isSubmitting,
-    canProceed,
-    canGoBack,
-    getStepProgress,
-    nextStep,
-    prevStep,
-    submitForm,
-    resetForm,
-  } = useFormWizard();
+interface FormWizardProps extends UseFormWizardReturn {}
+
+export const FormWizard: React.FC<FormWizardProps> = ({
+  currentStep,
+  steps,
+  errors,
+  isSubmitting,
+  canProceed,
+  canGoBack,
+  getStepProgress,
+  nextStep,
+  prevStep,
+  submitForm,
+  resetForm,
+}) => {
+  // console.log('[FormWizard] Rendering (PROPS). currentStep:', currentStep, 'canProceed:', canProceed, 'errors:', errors);
 
   const renderCurrentStep = () => {
     switch (currentStep) {
@@ -241,7 +252,6 @@ export const FormWizard: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>{steps[currentStep]?.title}</span>
-            {/* Reset Button (only show on review step) */}
             {isLastStep && (
               <Button
                 type="button"
@@ -260,15 +270,10 @@ export const FormWizard: React.FC = () => {
         </CardHeader>
         
         <CardContent className="space-y-6">
-          {/* Error Display */}
           <ErrorDisplay errors={errors} currentStep={currentStep} />
-          
-          {/* Current Step Content */}
           <div className="min-h-96">
             {renderCurrentStep()}
           </div>
-          
-          {/* Navigation */}
           <NavigationButtons
             canGoBack={canGoBack}
             canProceed={canProceed}
@@ -277,6 +282,7 @@ export const FormWizard: React.FC = () => {
             onBack={prevStep}
             onNext={nextStep}
             onSubmit={submitForm}
+            errors={errors}
           />
         </CardContent>
       </Card>
