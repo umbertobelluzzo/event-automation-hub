@@ -39,12 +39,12 @@ const CreateEventPageContent: React.FC = () => {
 // Main Create Event Page
 // =============================================================================
 
-const CreateEventPage: React.FC = () => {
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <CreateEventPageContent />
-    </div>
-  );
-};
+// const CreateEventPage: React.FC = () => {
+//   return (
+//     <div className="min-h-screen bg-gray-50 py-8">
+//       <CreateEventPageContent />
+//     </div>
+//   );
+// };
 
-export default CreateEventPage;
+// export default CreateEventPage;
