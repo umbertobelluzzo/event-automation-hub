@@ -1,4 +1,4 @@
-# =============================================================================
+from datetime import datetime# =============================================================================
 # agents/main.py - FastAPI Server Entry Point
 # =============================================================================
 
@@ -160,7 +160,7 @@ async def health_check():
     
     return HealthResponse(
         status=overall_status,
-        timestamp=asyncio.get_event_loop().time(),
+        timestamp=datetime.utcnow().isoformat(),
         version="1.0.0",
         services=services_status
     )
@@ -172,7 +172,7 @@ async def detailed_health_check():
     
     health_data = {
         "status": "healthy",
-        "timestamp": asyncio.get_event_loop().time(),
+        "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0",
         "environment": settings.environment,
         "services": {},
@@ -420,7 +420,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=settings.port,
+        port=8000,
         reload=settings.environment == "development",
         log_level=settings.log_level.lower(),
         access_log=True

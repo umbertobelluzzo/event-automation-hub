@@ -1,31 +1,8 @@
-#Dependencies
-node_modules/
-*/node_modules/
-**/node_modules/
+# =============================================================================
+# UIS Event-Automation Hub - Comprehensive .gitignore
+# =============================================================================
 
-# Lock files (optional - you can keep these)
-pnpm-lock.yaml
-package-lock.json
-yarn.lock
-
-# Build outputs
-.next/
-dist/
-build/
-
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# OS generated files
+# Operating System Files
 .DS_Store
 .DS_Store?
 ._*
@@ -33,3 +10,255 @@ pnpm-debug.log*
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# =============================================================================
+# Node.js / JavaScript / TypeScript
+# =============================================================================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# =============================================================================
+# Next.js (Frontend)
+# =============================================================================
+
+# Next.js build outputs
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Next.js cache
+frontend/.next/cache/
+
+# Static exports
+frontend/out/
+
+# =============================================================================
+# Python (AI Agents)
+# =============================================================================
+
+# Virtual environments
+agents/venv/
+agents/.venv/
+agents/env/
+agents/.env/
+agents/ENV/
+agents/env.bak/
+agents/venv.bak/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit testing / pytest
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# =============================================================================
+# Database & Storage
+# =============================================================================
+
+# PostgreSQL
+*.sql
+*.dump
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma
+prisma/migrations/
+.prisma/
+
+# =============================================================================
+# Environment Variables & Secrets
+# =============================================================================
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+
+# API Keys and secrets
+secrets/
+credentials/
+*.pem
+*.key
+*.crt
+service-account*.json
+
+# =============================================================================
+# Logs & Monitoring
+# =============================================================================
+
+# Application logs
+logs/
+*.log
+storage/logs/
+
+# PM2 logs
+.pm2/
+
+# =============================================================================
+# Development & Build Tools
+# =============================================================================
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint cache
+.eslintcache
+
+# Prettier
+.prettierignore
+
+# Vite
+.vite/
+
+# Turbo
+.turbo/
+
+# =============================================================================
+# Editors & IDEs
+# =============================================================================
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ / WebStorm
+.idea/
+*.swp
+*.swo
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# Temporary & Cache Files
+# =============================================================================
+
+# Temporary directories
+tmp/
+temp/
+.tmp/
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# =============================================================================
+# Project Specific
+# =============================================================================
+
+# Generated content (AI outputs)
+storage/generated/
+uploads/
+generated_content/
+
+# Backup files
+*.backup
+*.bak
+app_old.js
+
+# Study/test data
+data/
+test_data/
+
+# Documentation builds
+docs/build/
+
+# =============================================================================
+# Deployment & Production
+# =============================================================================
+
+# Docker
+.dockerignore
+
+# Heroku
+.heroku/
+
+# Vercel
+.vercel/
+
+# Railway
+.railway/
+
+# =============================================================================
+# Miscellaneous
+# =============================================================================
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Network drives
+.netrc

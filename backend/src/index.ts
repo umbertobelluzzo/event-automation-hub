@@ -1,12 +1,13 @@
+// backend/src/index.ts - Fixed version
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { createLogger } from './utils/logger';
-import { errorHandler } from './middleware/error-handler.ts';
+import { errorHandler } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
-import { authMiddleware } from './middleware/auth';
+import { authMiddleware, simpleAuthMiddleware, type AuthenticatedRequest } from './middleware/auth';
 import { validateEnv } from './utils/validate-env';
 
 // Route imports
@@ -19,7 +20,11 @@ import healthRoutes from './routes/health';
 // =============================================================================
 
 dotenv.config({ path: '../../.env' });
-validateEnv();
+
+// Skip validation in development to allow starting without all services
+if (process.env.NODE_ENV === 'production') {
+  validateEnv();
+}
 
 const app = express();
 const logger = createLogger('server');
@@ -89,8 +94,9 @@ app.use('/api/health', healthRoutes);
 // Authentication routes (public)
 app.use('/api/auth', authRoutes);
 
-// Protected routes (require authentication)
-app.use('/api/events', authMiddleware, eventRoutes);
+// Protected routes - use simple auth for development
+const authToUse = process.env.NODE_ENV === 'development' ? simpleAuthMiddleware : authMiddleware;
+app.use('/api/events', authToUse, eventRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
