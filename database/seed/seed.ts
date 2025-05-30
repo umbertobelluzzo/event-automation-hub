@@ -71,6 +71,12 @@ async function main() {
       name: 'Giuseppe Bianchi',
       role: UserRole.VOLUNTEER,
     },
+    {
+      id: 'dev-user-1',
+      email: 'dev@example.com',
+      name: 'Development User',
+      role: UserRole.ADMIN,
+    }
   ];
 
   for (const user of users) {
@@ -151,9 +157,10 @@ async function main() {
   ];
 
   for (const event of events) {
+    const { id, createdAt, updatedAt, ...dataToUpdate } = event as any;
     await prisma.event.upsert({
       where: { id: event.id },
-      update: { ...event, updatedAt: new Date() },
+      update: dataToUpdate,
       create: event,
     });
   }
@@ -176,24 +183,8 @@ async function main() {
 🎟️ £15 per person
 
 Link in bio to register! #UISLondon #ItalianLanguage #LearnItalian #CommunityEvent`,
-      linkedinCaption: `Enhance your language skills with our Italian Language Workshop at the United Italian Societies.
-
-Our experienced native speakers will guide you through essential phrases and conversation techniques in a supportive community environment.
-
-📅 February 15th, 7:00 PM
-📍 UIS Community Center, London
-💼 Perfect for professionals and enthusiasts alike
-
-Register now: [link] #ProfessionalDevelopment #Languages #Networking`,
-      whatsappMessage: `🇮🇹 Ciao UIS Community!
-
-Join us for an Italian Language Workshop this Thursday, Feb 15th at 7 PM at our Community Center.
-
-Perfect for beginners - native speakers will teach you essential phrases and conversation skills.
-
-£15 per person, register at: [link]
-
-Grazie! 🙌`,
+      linkedinCaption: `Enhance your language skills with our Italian Language Workshop at the United Italian Societies.\n\nOur experienced native speakers will guide you through essential phrases and conversation techniques in a supportive community environment.\n\n📅 February 15th, 7:00 PM\n📍 UIS Community Center, London\n💼 Perfect for professionals and enthusiasts alike\n\nRegister now: [link] #ProfessionalDevelopment #Languages #Networking`,
+      whatsAppMessageText: `🇮🇹 Ciao UIS Community!\n\nJoin us for an Italian Language Workshop this Thursday, Feb 15th at 7 PM at our Community Center.\n\nPerfect for beginners - native speakers will teach you essential phrases and conversation skills.\n\n£15 per person, register at: [link]\n\nGrazie! 🙌`,
       flyerStyle: 'professional',
       targetAudience: ['language-learners', 'professionals', 'italian-culture-enthusiasts'],
       keyMessages: ['beginner-friendly', 'native-speakers', 'practical-conversation'],
@@ -214,24 +205,8 @@ This Thursday we're screening "La Vita è Bella" - Roberto Benigni's Oscar-winni
 ⏰ 8:00 PM
 
 Tag someone who loves great cinema! #UISLondon #ItalianCinema #LaVitaEBella #CommunityEvent`,
-      linkedinCaption: `Experience cinematic excellence at our Italian Cinema Night featuring "La Vita è Bella".
-
-Roberto Benigni's Academy Award-winning film offers both entertainment and profound storytelling - perfect for film enthusiasts and Italian culture appreciators.
-
-📅 February 22nd, 8:00 PM
-📍 UIS Theater Room
-🎭 Free admission, registration required
-
-Join our community for an evening of exceptional Italian cinema. #Culture #Film #ItalianHeritage`,
-      whatsappMessage: `🎬 Cinema lovers!
-
-Join us Thursday, Feb 22nd at 8 PM for Italian Cinema Night.
-
-We're screening "La Vita è Bella" - the beautiful Oscar-winning film by Roberto Benigni.
-
-FREE event at UIS Theater Room. Register: [link]
-
-See you there! 🍿`,
+      linkedinCaption: `Experience cinematic excellence at our Italian Cinema Night featuring "La Vita è Bella".\n\nRoberto Benigni's Academy Award-winning film offers both entertainment and profound storytelling - perfect for film enthusiasts and Italian culture appreciators.\n\n📅 February 22nd, 8:00 PM\n📍 UIS Theater Room\n🎭 Free admission, registration required\n\nJoin our community for an evening of exceptional Italian cinema. #Culture #Film #ItalianHeritage`,
+      whatsAppMessageText: `🎬 Cinema lovers!\n\nJoin us Thursday, Feb 22nd at 8 PM for Italian Cinema Night.\n\nWe're screening "La Vita è Bella" - the beautiful Oscar-winning film by Roberto Benigni.\n\nFREE event at UIS Theater Room. Register: [link]\n\nSee you there! 🍿`,
       flyerStyle: 'artistic',
       targetAudience: ['film-enthusiasts', 'culture-lovers', 'community-members'],
       keyMessages: ['oscar-winning', 'free-event', 'community-experience'],
@@ -243,7 +218,7 @@ See you there! 🍿`,
   for (const content of generatedContent) {
     await prisma.generatedContent.upsert({
       where: { eventId: content.eventId },
-      update: { ...content, lastRegenerated: new Date() },
+      update: content,
       create: content,
     });
   }
@@ -304,9 +279,10 @@ See you there! 🍿`,
   ];
 
   for (const session of workflowSessions) {
+    const { id, createdAt, updatedAt, ...dataToUpdate } = session as any;
     await prisma.workflowSession.upsert({
       where: { id: session.id },
-      update: { ...session, updatedAt: new Date() },
+      update: dataToUpdate,
       create: session,
     });
   }

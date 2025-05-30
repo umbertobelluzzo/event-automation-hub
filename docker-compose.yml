@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: uis_events
       POSTGRES_USER: uis_user
-      POSTGRES_PASSWORD: uis_password
+      POSTGRES_PASSWORD: supersecretpassword
     ports:
       - "5432:5432"
     volumes:
@@ -35,14 +35,14 @@ services:
   # Frontend (Next.js)
   frontend:
     build:
-      context: .
+      context: .        # 👈 Focused context
       dockerfile: Dockerfile.dev
       target: frontend
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://uis_user:uis_password@postgres:5432/uis_events
+      - DATABASE_URL=postgresql://uis_user:supersecretpassword@localhost:5432/uis_events
       - REDIS_URL=redis://redis:6379
       - BACKEND_URL=http://backend:4000  
       - AGENTS_URL=http://agents:8000
@@ -61,14 +61,14 @@ services:
   # Backend API (Express)
   backend:
     build:
-      context: .
+      context: .      # 👈 Focused context
       dockerfile: Dockerfile.dev
       target: backend
     ports:
       - "4000:4000"
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://uis_user:uis_password@postgres:5432/uis_events
+      - DATABASE_URL=postgresql://uis_user:supersecretpassword@localhost:5432/uis_events
       - REDIS_URL=redis://redis:6379
       - FRONTEND_URL=http://frontend:3000
       - AGENTS_URL=http://agents:8000
@@ -87,14 +87,14 @@ services:
   # AI Agents (FastAPI + LangGraph)
   agents:
     build:
-      context: .
+      context: .          # 👈 Focused context
       dockerfile: Dockerfile.dev
       target: agents
     ports:
       - "8000:8000"
     environment:
       - PYTHON_ENV=development
-      - DATABASE_URL=postgresql://uis_user:uis_password@postgres:5432/uis_events
+      - DATABASE_URL=postgresql://uis_user:supersecretpassword@localhost:5432/uis_events
       - REDIS_URL=redis://redis:6379
       - FRONTEND_URL=http://frontend:3000
       - BACKEND_URL=http://backend:4000

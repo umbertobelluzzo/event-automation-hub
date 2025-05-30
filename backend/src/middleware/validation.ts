@@ -7,9 +7,10 @@ export const validateRequest = (schema: z.ZodSchema) => {
       // Validate request body
       req.body = schema.parse(req.body);
       next();
+      return;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Validation failed',
           errors: error.errors.map(err => ({
@@ -18,12 +19,13 @@ export const validateRequest = (schema: z.ZodSchema) => {
             code: err.code,
           })),
         });
+        return;
       }
-
       res.status(500).json({
         success: false,
         message: 'Validation error',
       });
+      return;
     }
   };
 };
@@ -33,9 +35,10 @@ export const validateQuery = (schema: z.ZodSchema) => {
     try {
       req.query = schema.parse(req.query);
       next();
+      return;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: 'Query validation failed',
           errors: error.errors.map(err => ({
@@ -43,12 +46,13 @@ export const validateQuery = (schema: z.ZodSchema) => {
             message: err.message,
           })),
         });
+        return;
       }
-
       res.status(500).json({
         success: false,
         message: 'Query validation error',
       });
+      return;
     }
   };
 };

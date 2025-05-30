@@ -1,8 +1,8 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { RedisService } from '../services/redis-service';
 
-const router = express.Router();
+const router: Router = express.Router();
 const prisma = new PrismaClient();
 const redis = new RedisService();
 
@@ -39,7 +39,7 @@ router.get('/detailed', async (req, res) => {
     checks.database = { 
       status: 'unhealthy', 
       error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    } as any;
   }
 
   // Check Redis
@@ -50,7 +50,7 @@ router.get('/detailed', async (req, res) => {
     checks.redis = { 
       status: 'unhealthy', 
       error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    } as any;
   }
 
   // Check AI Agents
@@ -62,12 +62,12 @@ router.get('/detailed', async (req, res) => {
     checks.agents = { 
       status: response.ok ? 'healthy' : 'unhealthy',
       statusCode: response.status,
-    };
+    } as any;
   } catch (error) {
     checks.agents = { 
       status: 'unhealthy', 
       error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    } as any;
   }
 
   const overallHealthy = Object.values(checks).every(check => check.status === 'healthy');
@@ -76,7 +76,7 @@ router.get('/detailed', async (req, res) => {
     status: overallHealthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     checks,
-  });
+  } as any);
 });
 
 export default router;

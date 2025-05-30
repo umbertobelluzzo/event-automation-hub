@@ -234,7 +234,9 @@ const useFormWizard = (): UseFormWizardReturn => {
     
     try {
       // TODO: Implement actual API call
-      const response = await fetch('/api/events/create', {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:4000';
+      const endpoint = `${backendUrl.replace(/\/api$|\/$/, '')}/api/events/create`; // Remove trailing /api or / and then add /api/events/create
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

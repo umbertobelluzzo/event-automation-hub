@@ -209,7 +209,7 @@ AGENTS_PORT=8000
 # -----------------------------------------------------------------------------
 # Database Configuration
 # -----------------------------------------------------------------------------
-DATABASE_URL="postgresql://username:password@localhost:5432/uis_events?schema=public"
+DATABASE_URL=postgresql://uis_user:supersecretpassword@localhost:5432/uis_events
 REDIS_URL="redis://localhost:6379"
 
 # -----------------------------------------------------------------------------
@@ -263,7 +263,7 @@ ENABLE_REQUEST_LOGGING=true
 # Development & Testing
 # -----------------------------------------------------------------------------
 ENABLE_MOCK_SERVICES=false
-TEST_DATABASE_URL="postgresql://username:password@localhost:5432/uis_events_test"
+TEST_DATABASE_URL=postgresql://uis_user:supersecretpassword@localhost:5432/uis_events
 SEED_DATABASE=true
 EOF
 

@@ -1,4 +1,4 @@
-import Redis from 'redis';
+import * as Redis from 'redis';
 import { createLogger } from '../utils/logger';
 import type { WorkflowProgress } from '../types';
 

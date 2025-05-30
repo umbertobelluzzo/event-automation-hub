@@ -60,14 +60,28 @@ model Event {
   // Ticketing
   isFree              Boolean @default(true)
   ticketPrice         Float?
+  ticketCurrency      String? @default("GBP")
   registrationRequired Boolean @default(false)
+  registrationDeadline DateTime?
   maxAttendees        Int?
   currentAttendees    Int     @default(0)
+  
+  // Organizer Info
+  organizerName    String?
+  organizerContact String?
+
+  // Consents
+  consentDataAccuracy     Boolean  @default(false)
+  consentAiGeneration     Boolean  @default(false)
   
   // Event Status
   status      EventStatus @default(DRAFT)
   isPublished Boolean     @default(false)
   publishedAt DateTime?
+  
+  // AI Processing Status
+  overallProcessingStatus ProcessingStatus @default(PENDING)
+  processingErrorDetails  String?
   
   // Metadata
   tags        String[]
@@ -109,35 +123,59 @@ enum EventStatus {
 // =============================================================================
 
 model GeneratedContent {
-  id      String @id @default(cuid())
-  eventId String @unique
-  
-  // Generated Assets
-  flyerUrl          String?
-  flyerCanvaId      String?
+  id                String    @id @default(cuid())
+  eventId           String    @unique // Each event has one set of generated content
+  event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  flyerUrl          String?   // URL of the generated flyer (e.g., S3 link from Templated.io)
+  flyerRenderId     String?   // ID of the render from Templated.io
+  flyerTemplateId   String?   // ID of the template used in Templated.io
+  flyerFormat       String?   // Format of the flyer (e.g., png, jpg)
+  flyerDesignNotes  Json?     // AI-generated design notes or instructions used
+
+  // Social Media Content
   instagramCaption  String?
   linkedinCaption   String?
-  whatsappMessage   String?
+  twitterCaption    String?
+  whatsAppMessage   String?
+  
+  socialMediaPosts  Json?     // Array of social media post objects
+  
+  // Generated Assets
+  whatsAppDocId     String?
   
   // External Service IDs
-  googleCalendarId String?
-  clickupTaskId    String?
-  driveFolder      String?
-  driveFolderUrl   String?
+  googleCalendarEventId String?
+  clickupTaskId         String?
+  googleDriveFolderId   String?
+  googleDriveFolderUrl  String?
   
   // Content Preferences (used for regeneration)
-  flyerStyle      String? // 'professional' | 'casual' | 'festive'
-  targetAudience  String[]
-  keyMessages     String[]
-  socialTone      String? // 'formal' | 'friendly' | 'enthusiastic'
+  flyerStyle             String?
+  targetAudience         String[]
+  keyMessages            String[]
+  socialTone             String?
+  includeLogo            Boolean?
+  brandColors            String[]
+  additionalInstructions String?
   
   // Generation Metadata
   generatedAt     DateTime @default(now())
   lastRegenerated DateTime?
   generationCount Int      @default(1)
   
-  // Relations
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  // Individual Task Statuses
+  flyerGenerationStatus         ProcessingStatus @default(PENDING)
+  socialMediaGenerationStatus   ProcessingStatus @default(PENDING)
+  whatsAppGenerationStatus      ProcessingStatus @default(PENDING)
+  calendarEventCreationStatus   ProcessingStatus @default(PENDING)
+  clickUpTaskCreationStatus     ProcessingStatus @default(PENDING)
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
+  
+  // No explicit relations here, it's linked via Event
 
   @@map("generated_content")
 }
@@ -186,6 +224,15 @@ enum WorkflowStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+// New Enum for AI Processing Status
+enum ProcessingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  SKIPPED 
 }
 
 // =============================================================================

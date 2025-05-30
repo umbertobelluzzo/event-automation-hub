@@ -17,8 +17,9 @@ export interface AuthenticatedRequest extends Request {
 }
 
 /**
- * Development-only auth middleware
- * In production, this would verify real JWT tokens
+ * Full authentication middleware for user-facing routes.
+ * In a real production app, this would verify JWT tokens.
+ * For now, it remains a development mock.
  */
 export const authMiddleware = (
   req: AuthenticatedRequest,
@@ -34,11 +35,40 @@ export const authMiddleware = (
     isActive: true,
   };
   
-  logger.debug('Development user attached to request');
+  logger.debug('Development user attached to request via authMiddleware');
   next();
 };
 
 /**
- * Simple auth middleware for development/testing
+ * Simple API Key authentication middleware for machine-to-machine communication.
+ * Used to protect webhook endpoints called by internal services (e.g., Python AI Agents).
  */
-export const simpleAuthMiddleware = authMiddleware; // Same as above for now
+export const simpleAuthMiddleware = (
+  req: Request, // Can be basic Request type if no user is attached
+  res: Response,
+  next: NextFunction
+): void => {
+  const apiKey = process.env.NODEJS_API_KEY;
+
+  if (!apiKey) {
+    logger.error('CRITICAL: NODEJS_API_KEY is not set in environment. Denying all M2M requests.');
+    res.status(500).json({ success: false, message: 'Server configuration error' });
+    return;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    logger.warn('M2M request missing or malformed Authorization header');
+    res.status(401).json({ success: false, message: 'Unauthorized: Missing API Key' });
+    return;
+  }
+
+  const providedKey = authHeader.split(' ')[1];
+  if (providedKey === apiKey) {
+    logger.debug('M2M request authenticated successfully via API Key');
+    next();
+  } else {
+    logger.warn('M2M request with invalid API Key');
+    res.status(403).json({ success: false, message: 'Forbidden: Invalid API Key' });
+  }
+};

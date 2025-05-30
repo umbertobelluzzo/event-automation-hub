@@ -3,10 +3,22 @@
 # =============================================================================
 
 import os
-from typing import Optional
+from typing import Optional, Any
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from functools import lru_cache
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Determine the path to the root .env file
+# __file__ is agents/utils/config.py
+# .env is at the project root, so 3 levels up from __file__.parent
+ROOT_ENV_PATH = Path(__file__).parent.parent.parent / ".env"
+
+# Load the .env file before Pydantic Settings initialization
+# override=True ensures that variables from .env file take precedence
+if ROOT_ENV_PATH.exists():
+    load_dotenv(dotenv_path=ROOT_ENV_PATH, override=True)
 
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
@@ -24,10 +36,12 @@ class Settings(BaseSettings):
     
     # API URLs
     backend_url: str = Field(default="http://localhost:4000", env="BACKEND_URL")
+    backend_callback_url: Optional[str] = Field(default=None, env="BACKEND_CALLBACK_URL")
     frontend_url: str = Field(default="http://localhost:3000", env="FRONTEND_URL")
     
     # Authentication & Security
     agents_api_key: str = Field(default="your-agents-api-key", env="AGENTS_API_KEY")
+    nodejs_api_key: Optional[str] = Field(default=None, env="NODEJS_API_KEY")
     jwt_secret: str = Field(default="your-jwt-secret", env="JWT_SECRET")
     nextauth_secret: str = Field(default="", env="NEXTAUTH_SECRET")
     nextauth_url: str = Field(default="http://localhost:3000", env="NEXTAUTH_URL")
@@ -59,17 +73,23 @@ class Settings(BaseSettings):
     redis_password: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
     
     # Google Services Configuration
-    google_service_account_json: str = Field(default="", env="GOOGLE_SERVICE_ACCOUNT_JSON")
+    google_service_account_key_path: str = Field(
+        default_factory=lambda: os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", ""), 
+        env="GOOGLE_SERVICE_ACCOUNT_JSON"
+    )
     google_drive_parent_folder_id: str = Field(default="", env="GOOGLE_DRIVE_PARENT_FOLDER_ID")
     google_calendar_id: str = Field(default="primary", env="GOOGLE_CALENDAR_ID")
     google_credentials_path: str = Field(default="", env="GOOGLE_CREDENTIALS_PATH")
-    google_service_account_path: str = Field(default="", env="GOOGLE_SERVICE_ACCOUNT_PATH")
     google_drive_folder_id: str = Field(default="", env="GOOGLE_DRIVE_FOLDER_ID")
     
     # External Service APIs
-    canva_api_token: str = Field(default="", env="CANVA_API_TOKEN")
-    canva_template_id: str = Field(default="", env="CANVA_TEMPLATE_ID")
-    canva_brand_kit_id: str = Field(default="", env="CANVA_BRAND_KIT_ID")
+    canva_api_token: Optional[str] = Field(default=None, env="CANVA_API_TOKEN")
+    canva_template_id: Optional[str] = Field(default=None, env="CANVA_TEMPLATE_ID")
+    canva_brand_kit_id: Optional[str] = Field(default=None, env="CANVA_BRAND_KIT_ID")
+    
+    # Templated.io - New flyer generation service
+    templated_api_key: Optional[str] = Field(default=None, env="TEMPLATED_API_KEY")
+    templated_community_event_template_id: Optional[str] = Field(default=None, env="TEMPLATED_COMMUNITY_EVENT_TEMPLATE_ID")
     
     # ClickUp Configuration
     clickup_api_key: str = Field(default="", env="CLICKUP_API_KEY")
@@ -94,13 +114,19 @@ class Settings(BaseSettings):
     seed_database: bool = Field(default=True, env="SEED_DATABASE")
     
     # Database Configuration
-    database_url: str = Field(default="postgresql://user:pass@localhost/uis_events", env="DATABASE_URL")
+    database_url: str = Field(default="postgresql://uis_user:supersecretpassword@localhost:5432/uis_events", env="DATABASE_URL")
     
+    def __init__(self, **values: Any):
+        super().__init__(**values)
+
     model_config = {
-        "env_file": "../.env",
+        "env_file": ROOT_ENV_PATH,  # Explicitly tell Pydantic to load this .env file
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
-        "extra": "ignore"  # This allows extra fields in .env to be ignored
+        "extra": "ignore"
+        # Pydantic V2 by default gives environment variables higher priority than .env files.
+        # If `load_dotenv(override=True)` has correctly set the env var, Pydantic should use it.
+        # If not, Pydantic will try to load it from the env_file itself.
     }
     
     def validate_required_settings(self) -> list[str]:

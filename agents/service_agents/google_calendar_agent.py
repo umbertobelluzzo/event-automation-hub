@@ -69,7 +69,10 @@ class GoogleCalendarAgent:
                 else:
                     # For production, you'd implement proper OAuth flow
                     # For now, use service account credentials if available
-                    service_account_path = self.settings.google_service_account_path
+                    service_account_path = self.settings.google_service_account_key_path
+                    logger.info(f"[CalendarAgent] Service account path from settings: {service_account_path}")
+                    logger.info(f"[CalendarAgent] Does service account path exist? {os.path.exists(service_account_path)}")
+                    
                     if service_account_path and os.path.exists(service_account_path):
                         from google.oauth2 import service_account
                         self.credentials = service_account.Credentials.from_service_account_file(

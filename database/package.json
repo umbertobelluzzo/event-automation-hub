@@ -1,23 +1,22 @@
-
 {
     "name": "uis-database",
     "version": "1.0.0",
     "private": true,
     "scripts": {
-      "db:generate": "prisma generate",
-      "db:push": "prisma db push",
-      "db:migrate": "prisma migrate dev",
-      "db:migrate:deploy": "prisma migrate deploy",
+      "db:generate": "./node_modules/.bin/prisma generate",
+      "db:push": "./node_modules/.bin/prisma db push",
+      "db:migrate": "./node_modules/.bin/prisma migrate dev",
+      "db:migrate:deploy": "./node_modules/.bin/prisma migrate deploy",
       "db:seed": "tsx seed/seed.ts",
-      "db:studio": "prisma studio",
-      "db:reset": "prisma migrate reset",
-      "db:format": "prisma format"
+      "db:studio": "./node_modules/.bin/prisma studio",
+      "db:reset": "./node_modules/.bin/prisma migrate reset",
+      "db:format": "./node_modules/.bin/prisma format"
     },
     "dependencies": {
-      "@prisma/client": "^5.7.0"
+      "@prisma/client": "5.10.2"
     },
     "devDependencies": {
-      "prisma": "^5.7.0",
+      "prisma": "5.10.2",
       "tsx": "^4.6.0",
       "@types/node": "^20.10.0",
       "typescript": "^5.3.0"

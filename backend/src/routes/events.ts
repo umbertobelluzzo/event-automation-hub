@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { createLogger } from '../utils/logger';
@@ -7,8 +7,9 @@ import { generateSlug } from '../utils/slug';
 import { EventService } from '../services/event-service';
 import { WorkflowService } from '../services/workflow-service';
 import type { EventFormData, APIResponse, EventCreationResponse } from '../types';
+import type { AuthenticatedRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router: Router = express.Router();
 const prisma = new PrismaClient();
 const logger = createLogger('events-routes');
 const eventService = new EventService(prisma);
@@ -84,14 +85,14 @@ const eventFormSchema = z.object({
  * POST /api/events/create
  * Creates a new event from form wizard data and triggers AI workflow
  */
-router.post('/create', validateRequest(eventFormSchema), async (req, res) => {
+router.post('/create', validateRequest(eventFormSchema), async (req: AuthenticatedRequest, res) => {
   const userId = req.user?.id;
-  
   if (!userId) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: 'Authentication required',
     });
+    return;
   }
 
   try {
@@ -137,12 +138,13 @@ router.post('/create', validateRequest(eventFormSchema), async (req, res) => {
     };
 
     res.status(201).json(response);
+    return;
 
   } catch (error) {
     logger.error('Event creation failed:', error);
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Validation failed',
         errors: error.errors.map(err => ({
@@ -150,12 +152,14 @@ router.post('/create', validateRequest(eventFormSchema), async (req, res) => {
           message: err.message,
         })),
       });
+      return;
     }
 
     res.status(500).json({
       success: false,
       message: 'Failed to create event. Please try again.',
     });
+    return;
   }
 });
 
@@ -167,7 +171,7 @@ router.post('/create', validateRequest(eventFormSchema), async (req, res) => {
  * GET /api/events
  * Returns paginated list of user's events
  */
-router.get('/', async (req, res) => {
+router.get('/', async (req: AuthenticatedRequest, res) => {
   const userId = req.user?.id;
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
@@ -185,6 +189,7 @@ router.get('/', async (req, res) => {
       data: events.items,
       pagination: events.pagination,
     });
+    return;
 
   } catch (error) {
     logger.error('Failed to fetch events:', error);
@@ -192,6 +197,7 @@ router.get('/', async (req, res) => {
       success: false,
       message: 'Failed to fetch events',
     });
+    return;
   }
 });
 
@@ -199,7 +205,7 @@ router.get('/', async (req, res) => {
  * GET /api/events/:id
  * Returns single event details
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -207,16 +213,18 @@ router.get('/:id', async (req, res) => {
     const event = await eventService.getEventById(id, userId!);
 
     if (!event) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Event not found',
       });
+      return;
     }
 
     res.json({
       success: true,
       data: event,
     });
+    return;
 
   } catch (error) {
     logger.error(`Failed to fetch event ${id}:`, error);
@@ -224,6 +232,7 @@ router.get('/:id', async (req, res) => {
       success: false,
       message: 'Failed to fetch event',
     });
+    return;
   }
 });
 
@@ -235,7 +244,7 @@ router.get('/:id', async (req, res) => {
  * PUT /api/events/:id
  * Updates an existing event
  */
-router.put('/:id', validateRequest(eventFormSchema.partial()), async (req, res) => {
+router.put('/:id', validateRequest(eventFormSchema.partial()), async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -243,10 +252,11 @@ router.put('/:id', validateRequest(eventFormSchema.partial()), async (req, res) 
     const event = await eventService.updateEvent(id, userId!, req.body);
 
     if (!event) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Event not found or you do not have permission to update it',
       });
+      return;
     }
 
     logger.info(`Event updated: ${event.id}`);
@@ -256,6 +266,7 @@ router.put('/:id', validateRequest(eventFormSchema.partial()), async (req, res) 
       data: event,
       message: 'Event updated successfully',
     });
+    return;
 
   } catch (error) {
     logger.error(`Failed to update event ${id}:`, error);
@@ -263,6 +274,7 @@ router.put('/:id', validateRequest(eventFormSchema.partial()), async (req, res) 
       success: false,
       message: 'Failed to update event',
     });
+    return;
   }
 });
 
@@ -274,7 +286,7 @@ router.put('/:id', validateRequest(eventFormSchema.partial()), async (req, res) 
  * PATCH /api/events/:id/status
  * Updates event status (publish, unpublish, cancel)
  */
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const userId = req.user?.id;
@@ -305,6 +317,7 @@ router.patch('/:id/status', async (req, res) => {
       data: event,
       message: `Event ${status} successfully`,
     });
+    return;
 
   } catch (error) {
     logger.error(`Failed to update event status ${id}:`, error);
@@ -312,6 +325,7 @@ router.patch('/:id/status', async (req, res) => {
       success: false,
       message: 'Failed to update event status',
     });
+    return;
   }
 });
 
@@ -323,7 +337,7 @@ router.patch('/:id/status', async (req, res) => {
  * GET /api/events/:id/workflow
  * Returns AI workflow status for an event
  */
-router.get('/:id/workflow', async (req, res) => {
+router.get('/:id/workflow', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -343,6 +357,7 @@ router.get('/:id/workflow', async (req, res) => {
       success: true,
       data: workflow,
     });
+    return;
 
   } catch (error) {
     logger.error(`Failed to fetch workflow status for event ${id}:`, error);
@@ -350,6 +365,7 @@ router.get('/:id/workflow', async (req, res) => {
       success: false,
       message: 'Failed to fetch workflow status',
     });
+    return;
   }
 });
 
@@ -357,7 +373,7 @@ router.get('/:id/workflow', async (req, res) => {
  * POST /api/events/:id/regenerate
  * Triggers AI content regeneration for an event
  */
-router.post('/:id/regenerate', async (req, res) => {
+router.post('/:id/regenerate', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { contentType } = req.body; // 'flyer', 'social', 'whatsapp', or 'all'
@@ -381,6 +397,7 @@ router.post('/:id/regenerate', async (req, res) => {
       data: workflowSession,
       message: 'Content regeneration started',
     });
+    return;
 
   } catch (error) {
     logger.error(`Failed to regenerate content for event ${id}:`, error);
@@ -388,6 +405,7 @@ router.post('/:id/regenerate', async (req, res) => {
       success: false,
       message: 'Failed to start content regeneration',
     });
+    return;
   }
 });
 
@@ -399,7 +417,7 @@ router.post('/:id/regenerate', async (req, res) => {
  * DELETE /api/events/:id
  * Deletes an event (soft delete)
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -419,6 +437,7 @@ router.delete('/:id', async (req, res) => {
       success: true,
       message: 'Event deleted successfully',
     });
+    return;
 
   } catch (error) {
     logger.error(`Failed to delete event ${id}:`, error);
@@ -426,6 +445,7 @@ router.delete('/:id', async (req, res) => {
       success: false,
       message: 'Failed to delete event',
     });
+    return;
   }
 });
 

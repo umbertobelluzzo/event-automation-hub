@@ -19,7 +19,7 @@ class ClickUpAgent:
     
     def __init__(self):
         self.settings = get_settings()
-        self.api_key = self.settings.clickup_api_key
+        self.api_token = self.settings.clickup_api_token
         self.team_id = self.settings.clickup_team_id
         self.space_id = self.settings.clickup_space_id
         self.folder_id = self.settings.clickup_folder_id
@@ -34,7 +34,7 @@ class ClickUpAgent:
             # Create HTTP session for ClickUp API calls
             self.session = aiohttp.ClientSession(
                 headers={
-                    'Authorization': self.api_key,
+                    'Authorization': self.api_token,
                     'Content-Type': 'application/json'
                 },
                 timeout=aiohttp.ClientTimeout(total=30)
@@ -53,7 +53,7 @@ class ClickUpAgent:
     async def _test_connection(self) -> bool:
         """Test ClickUp API connection"""
         
-        if not self.session or not self.api_key:
+        if not self.session or not self.api_token:
             return False
         
         try:
@@ -81,7 +81,7 @@ class ClickUpAgent:
         
         logger.info(f"Creating ClickUp task for event: {event_data.get('title', 'Untitled')}")
         
-        if not self.session or not self.api_key:
+        if not self.session or not self.api_token:
             logger.warning("ClickUp service not available")
             return {
                 'error': 'ClickUp service not initialized',

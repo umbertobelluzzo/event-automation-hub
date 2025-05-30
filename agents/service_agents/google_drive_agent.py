@@ -31,8 +31,7 @@ class GoogleDriveAgent:
         self.service = None
         self.credentials = None
         self.scopes = [
-            'https://www.googleapis.com/auth/drive.file',
-            'https://www.googleapis.com/auth/drive.folder'
+            'https://www.googleapis.com/auth/drive'
         ]
     
     async def initialize(self):
@@ -72,12 +71,42 @@ class GoogleDriveAgent:
                 else:
                     # For production, you'd implement proper OAuth flow
                     # For now, use service account credentials if available
-                    service_account_path = self.settings.google_service_account_path
+                    service_account_path = self.settings.google_service_account_key_path
+                    logger.info(f"Service account path from settings: {service_account_path}")
+                    logger.info(f"Does service account path exist? {os.path.exists(service_account_path)}")
+                    
                     if service_account_path and os.path.exists(service_account_path):
                         from google.oauth2 import service_account
+                        import json
+
+                        # Load the service account key file to get the client_email
+                        with open(service_account_path, 'r') as f:
+                            sa_info = json.load(f)
+                        subject_email = sa_info.get('client_email')
+                        if not subject_email:
+                            logger.error("Could not find client_email in service account key file.")
+                            raise ValueError("client_email missing from service account JSON")
+                        logger.info(f"Using subject_email for Drive credentials: {subject_email}")
+
                         self.credentials = service_account.Credentials.from_service_account_file(
-                            service_account_path, scopes=self.scopes
+                            service_account_path, 
+                            scopes=self.scopes,
+                            subject=subject_email
                         )
+                        
+                        # Explicitly refresh the credentials to obtain a token
+                        try:
+                            auth_request = Request()
+                            self.credentials.refresh(auth_request)
+                            if self.credentials.token:
+                                logger.info("Successfully refreshed credentials and obtained an access token for Drive.")
+                            else:
+                                logger.error("Credentials refreshed but no access token was obtained for Drive.")
+                                # Potentially raise an error or handle this state
+                        except Exception as refresh_err:
+                            logger.error(f"Error explicitly refreshing Drive credentials: {refresh_err}")
+                            # Potentially raise or handle
+
                     else:
                         logger.warning("No Google credentials found - Drive integration will be limited")
                         return
@@ -195,6 +224,13 @@ class GoogleDriveAgent:
                 'mimeType': 'application/vnd.google-apps.folder',
                 'description': f"Event folder for {title}. Created by UIS Event Automation System."
             }
+            
+            # Use parent folder ID if provided in settings
+            if self.settings.google_drive_parent_folder_id:
+                folder_metadata['parents'] = [self.settings.google_drive_parent_folder_id]
+                logger.info(f"Attempting to create folder under parent ID: {self.settings.google_drive_parent_folder_id}")
+            else:
+                logger.info("No parent folder ID provided, creating folder in root Drive.")
             
             # Create the folder
             folder = self.service.files().create(

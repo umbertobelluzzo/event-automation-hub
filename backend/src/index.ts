@@ -1,5 +1,5 @@
 // backend/src/index.ts - Fixed version
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -9,24 +9,38 @@ import { errorHandler } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { authMiddleware, simpleAuthMiddleware, type AuthenticatedRequest } from './middleware/auth';
 import { validateEnv } from './utils/validate-env';
+import path from 'path';
 
 // Route imports
 import eventRoutes from './routes/events';
-import authRoutes from './routes/auth';
+// import authRoutes from './routes/auth'; // Removed, no default export
 import healthRoutes from './routes/health';
+import workflowRoutes from './routes/workflowRoutes';
 
 // =============================================================================
 // Environment & Configuration
 // =============================================================================
 
-dotenv.config({ path: '../../.env' });
+// const rootEnvPath = path.resolve(__dirname, '..', '..', '..', '.env'); // Original thought, one too many '..'
+const rootEnvPath = path.resolve(__dirname, '..', '..', '.env'); 
+// console.log(`Attempting to load .env from: ${rootEnvPath}`); // Optional: for debugging
+const dotenvResult = dotenv.config({ path: rootEnvPath });
+console.log('DEBUG: DATABASE_URL at startup:', process.env.DATABASE_URL);
+
+// if (dotenvResult.error) { // Optional: for debugging
+//   console.error('Error loading .env file for backend:', dotenvResult.error);
+// } else if (dotenvResult.parsed) {
+//   console.log('Backend .env file loaded successfully. DATABASE_URL:', dotenvResult.parsed.DATABASE_URL ? 'Found' : 'NOT FOUND');
+// } else {
+//   console.log('Backend .env file not found or empty at expected path.');
+// }
 
 // Skip validation in development to allow starting without all services
 if (process.env.NODE_ENV === 'production') {
   validateEnv();
 }
 
-const app = express();
+const app: Application = express();
 const logger = createLogger('server');
 const PORT = process.env.BACKEND_PORT || 4000;
 
@@ -92,11 +106,13 @@ app.set('trust proxy', 1);
 app.use('/api/health', healthRoutes);
 
 // Authentication routes (public)
-app.use('/api/auth', authRoutes);
+// app.use('/api/auth', authRoutes); // Removed, no default export
 
-// Protected routes - use simple auth for development
-const authToUse = process.env.NODE_ENV === 'development' ? simpleAuthMiddleware : authMiddleware;
-app.use('/api/events', authToUse, eventRoutes);
+// Protected routes
+app.use('/api/events', authMiddleware, eventRoutes);
+
+// Workflow callback routes (requires simple API key auth)
+app.use('/api/workflow', workflowRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {

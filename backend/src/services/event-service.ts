@@ -1,4 +1,5 @@
 import { PrismaClient, Event, EventType, EventStatus } from '@prisma/client';
+console.log('DEBUG: Prisma Client version:', require('@prisma/client/package.json').version);
 import { createLogger } from '../utils/logger';
 import type { EventFormData, EventListItem } from '../types';
 
@@ -20,13 +21,16 @@ export class EventService {
    */
   async createEvent(data: EventFormData & { slug: string; createdBy: string }) {
     try {
+      // Ensure eventType is uppercase to match Prisma enum
+      const eventTypeValidated = data.eventType.toUpperCase() as EventType;
+
       const event = await this.prisma.event.create({
         data: {
           // Basic Information
           title: data.title,
           description: data.description,
           slug: data.slug,
-          eventType: data.eventType as EventType,
+          eventType: eventTypeValidated,
           
           // Date & Time
           startDate: data.startDate,
@@ -42,7 +46,9 @@ export class EventService {
           // Ticketing
           isFree: data.ticketInfo.isFree,
           ticketPrice: data.ticketInfo.price,
+          ticketCurrency: data.ticketInfo.currency,
           registrationRequired: data.ticketInfo.registrationRequired,
+          registrationDeadline: data.ticketInfo.registrationDeadline,
           maxAttendees: data.ticketInfo.maxAttendees,
           
           // Status & Visibility
@@ -50,15 +56,15 @@ export class EventService {
           isPublished: false,
           
           // Metadata
-          tags: data.tags,
+          tags: data.tags || [],
           customFields: {
-            contentPreferences: data.contentPreferences,
-            currency: data.ticketInfo.currency,
-            registrationDeadline: data.ticketInfo.registrationDeadline,
+            contentPreferences: data.contentPreferences as any,
           },
           
-          // Ownership
+          // Ownership & Consents from EventFormData
           createdBy: data.createdBy,
+          consentDataAccuracy: data.consentDataAccuracy,
+          consentAiGeneration: data.consentAiGeneration,
         },
         include: {
           creator: {
@@ -134,7 +140,7 @@ export class EventService {
                 flyerUrl: true,
                 instagramCaption: true,
                 linkedinCaption: true,
-                whatsappMessage: true,
+                whatsAppMessageText: true,
                 generatedAt: true,
               },
             },
@@ -283,7 +289,7 @@ export class EventService {
           ...(updates.ticketInfo?.registrationDeadline && { 
             registrationDeadline: updates.ticketInfo.registrationDeadline 
           }),
-        };
+        } as any;
       }
 
       updateData.updatedAt = new Date();

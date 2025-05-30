@@ -77,6 +77,8 @@ export interface APIResponse<T = any> {
     contentPreferences: ContentPreferences;
     tags: string[];
     isPublic: boolean;
+    consentDataAccuracy: boolean;
+    consentAiGeneration: boolean;
   }
   
   export interface WorkflowProgress {

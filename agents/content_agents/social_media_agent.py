@@ -57,483 +57,190 @@ class SocialMediaAgent:
         self,
         event_data: Dict[str, Any],
         preferences: Dict[str, Any],
+        flyer_url: str,
         llm: ChatOpenAI
     ) -> Dict[str, Any]:
-        """Generate social media content for all platforms"""
+        """Generate social media captions for Instagram, LinkedIn, and Twitter."""
         
-        logger.info(f"Generating social media content for event: {event_data.get('title', 'Untitled')}")
+        event_title = event_data.get('title', 'Untitled')
+        logger.info(f"Generating social media captions for event: {event_title} using flyer: {flyer_url}")
         
-        try:
-            # Determine which platforms to generate content for
-            platforms = preferences.get('social_platforms', ['instagram', 'linkedin', 'facebook'])
-            
-            generated_content = {}
-            
-            # Generate content for each platform
-            for platform in platforms:
+        # Fixed platforms
+        platforms = ['instagram', 'linkedin', 'twitter']
+        generated_captions = {}
+        errors = []
+
+        for platform in platforms:
+            try:
                 if platform in self.platform_configs:
-                    content = await self._generate_platform_content(
-                        platform, event_data, preferences, llm
+                    caption = await self._generate_platform_caption(
+                        platform, event_data, preferences, flyer_url, llm
                     )
-                    generated_content[platform] = content
+                    if caption.get("error"):
+                        errors.append(f"{platform.title()}: {caption['error']}")
+                        generated_captions[f'{platform}_caption'] = None # Or some error placeholder
+                    else:
+                        generated_captions[f'{platform}_caption'] = caption.get('caption_text')
+                else:
+                    logger.warning(f"Configuration for platform {platform} not found. Skipping.")
+                    errors.append(f"{platform.title()}: Configuration not found.")
             
-            logger.info(f"✅ Social media content generated for {len(generated_content)} platforms")
-            return generated_content
+            except Exception as e:
+                logger.error(f"❌ Error generating caption for {platform.title()} for event {event_title}: {e}", exc_info=True)
+                errors.append(f"{platform.title()}: {str(e)}")
+                generated_captions[f'{platform}_caption'] = None
+
+        if errors:
+            generated_captions['social_media_error'] = "; ".join(errors)
+            logger.error(f"Social media caption generation for event {event_title} encountered errors: {'; '.join(errors)}")
+        
+        logger.info(f"✅ Social media captions generated for event {event_title}")
+        return generated_captions
             
-        except Exception as e:
-            logger.error(f"❌ Social media content generation failed: {e}")
-            return {'error': str(e)}
-    
-    async def _generate_platform_content(
+    async def _generate_platform_caption(
         self,
         platform: str,
         event_data: Dict[str, Any],
         preferences: Dict[str, Any],
+        flyer_url: str,
         llm: ChatOpenAI
     ) -> Dict[str, Any]:
-        """Generate content for a specific platform"""
+        """Generate a caption for a specific platform."""
         
         config = self.platform_configs[platform]
         
-        # Build platform-specific prompt
-        prompt = self._build_platform_prompt(platform, event_data, preferences, config)
+        prompt = self._build_caption_prompt(platform, event_data, preferences, config, flyer_url)
         
         try:
-            # Generate content using LLM
             response = await llm.ainvoke([HumanMessage(content=prompt)])
             raw_content = response.content
             
-            # Process and format the content
-            formatted_content = self._format_platform_content(
-                platform, raw_content, event_data, config
-            )
+            caption_text = self._format_caption_from_response(platform, raw_content, config)
             
-            logger.info(f"✅ {platform.title()} content generated successfully")
-            return formatted_content
+            if not caption_text:
+                logger.error(f"❌ {platform.title()} caption generation failed: Could not extract caption from LLM response.")
+                return {'error': "Could not extract caption from LLM response."}
+
+            logger.info(f"✅ {platform.title()} caption generated successfully")
+            return {'caption_text': caption_text}
             
         except Exception as e:
-            logger.error(f"❌ {platform.title()} content generation failed: {e}")
+            logger.error(f"❌ {platform.title()} caption generation failed during LLM call or formatting: {e}", exc_info=True)
             return {
-                'error': str(e),
-                'fallback_content': self._generate_fallback_content(platform, event_data)
+                'error': str(e)
+                # 'fallback_content': self._generate_fallback_content(platform, event_data) # Fallback can be added later if needed
             }
     
-    def _build_platform_prompt(
+    def _build_caption_prompt(
         self,
         platform: str,
         event_data: Dict[str, Any],
         preferences: Dict[str, Any],
-        config: Dict[str, Any]
+        config: Dict[str, Any],
+        flyer_url: str
     ) -> str:
-        """Build platform-specific prompt for content generation"""
+        """Build platform-specific prompt for caption generation."""
         
-        # Extract event details
         title = event_data.get('title', 'Event')
         description = event_data.get('description', '')
         date = self._format_event_date(event_data.get('start_date'))
-        location = event_data.get('location', {})
+        location_obj = event_data.get('location', {})
         event_type = event_data.get('event_type', 'community')
         
-        # Get location string
-        if location.get('is_online'):
+        if location_obj.get('is_online'):
             location_str = 'Online Event'
         else:
-            location_str = location.get('name', 'Location TBD')
+            location_str = location_obj.get('name', 'Location TBD')
         
-        # Get target audience and key messages
         target_audience = preferences.get('target_audience', ['general-public'])
         key_messages = preferences.get('key_messages', [])
-        tone = preferences.get('tone', 'engaging')
-        
-        # Platform-specific instructions
-        platform_instructions = {
-            'instagram': """
-Create an Instagram post that is visually engaging and uses relevant hashtags:
-- Use emojis throughout the text to make it visually appealing
-- Include a strong call-to-action
-- Add relevant hashtags (max 30, but focus on the most relevant 10-15)
-- Write in a friendly, community-focused tone
-- Mention photo opportunities or visual aspects of the event
-""",
-            'linkedin': """
-Create a LinkedIn post that is professional yet engaging:
-- Use a professional tone while remaining approachable
-- Focus on networking opportunities, learning outcomes, or community impact
-- Include 3-5 relevant hashtags
-- Use minimal emojis (1-2 maximum)
-- Highlight professional benefits or community value
-""",
-            'twitter': """
-Create a Twitter/X post that is concise and impactful:
-- Stay under 280 characters including hashtags
-- Use 1-2 relevant hashtags maximum
-- Include emojis for visual appeal
-- Create urgency or excitement
-- Include a clear call-to-action
-""",
-            'facebook': """
-Create a Facebook post that encourages community engagement:
-- Use a conversational, community-focused tone
-- Ask questions to encourage comments and engagement
-- Include relevant details that help people understand the value
-- Use 3-5 hashtags maximum
-- Encourage sharing with friends who might be interested
-"""
+        # General tone preference can be used if desired, or let platform specifics dominate
+        # social_tone = preferences.get('social_tone', 'engaging') 
+
+        # Simplified platform-specific instructions focusing on caption for an existing flyer
+        platform_specific_guidance = {
+            'instagram': "Write a visually engaging Instagram caption. Use relevant emojis and include a strong call-to-action. Focus on community and visual appeal.",
+            'linkedin': "Write a professional yet engaging LinkedIn caption. Focus on networking, learning outcomes, or community impact. Use minimal emojis and highlight professional or community value.",
+            'twitter': "Write a concise and impactful Twitter/X caption (under 280 characters). Create urgency or excitement and include a clear call-to-action. Emojis can be used."
         }
         
         return f"""
-        Create engaging social media content for {platform.upper()} with these specifications:
+        CONTEXT:
+        You are an AI assistant for United Italian Societies, a cultural organization.
+        An event flyer has already been created. Its image can be found at: {flyer_url}
+        Your task is to generate ONLY the caption text for a social media post on {platform.upper()} that will accompany this flyer.
 
         EVENT DETAILS:
         - Title: {title}
         - Type: {event_type}
         - Date: {date}
         - Location: {location_str}
-        - Description: {description[:200]}...
+        - Description (brief): {description[:150]}...
 
-        TARGET & MESSAGING:
+        AUDIENCE & MESSAGING PREFERENCES:
         - Target Audience: {', '.join(target_audience)}
-        - Key Messages: {', '.join(key_messages) if key_messages else 'Community engagement, cultural celebration'}
-        - Desired Tone: {tone}
+        - Key Messages to incorporate: {', '.join(key_messages) if key_messages else 'Community engagement, cultural celebration, join us!'}
+        - Desired Tone: {config['tone']} (e.g., {platform_specific_guidance.get(platform, '')})
 
-        PLATFORM REQUIREMENTS:
-        - Maximum Length: {config['max_length']} characters
-        - Hashtag Limit: {config['hashtag_limit']}
-        - Platform Tone: {config['tone']}
-        - Use Emojis: {'Yes, use them liberally' if config['emoji_heavy'] else 'Use sparingly (1-2 maximum)'}
+        PLATFORM REQUIREMENTS for the caption:
+        - Platform: {platform.upper()}
+        - Maximum Caption Length: {config['max_length']} characters. Be mindful of this.
+        - Hashtags: Include a few relevant hashtags directly within or at the end of the caption. Limit to {config['hashtag_limit']}.
+        - Emojis: Use them appropriately for the platform ({'liberally' if config['emoji_heavy'] else 'sparingly'}).
+        
+        INSTRUCTIONS:
+        Generate ONLY the social media post caption text. The caption should be ready to copy-paste.
+        Do NOT include section headers like "CAPTION:", "POST:", "HASHTAGS:", etc. in your response.
+        Just provide the caption text itself.
 
-        {platform_instructions.get(platform, '')}
-
-        ORGANIZATION CONTEXT:
-        This is for United Italian Societies, a cultural organization celebrating Italian heritage and community.
-
-        Please provide:
-        1. Main post text
-        2. Suggested hashtags (separated)
-        3. Call-to-action phrase
-        4. Best posting time recommendation
-
-        Format your response as:
-        POST:
-        [Your main post content here]
-
-        HASHTAGS:
-        [List hashtags separated by spaces]
-
-        CALL-TO-ACTION:
-        [Specific call-to-action phrase]
-
-        POSTING-TIME:
-        [Recommended posting time and day]
+        Example of a good response (just the text):
+        "Join us for an amazing evening celebrating Italian culture at {title}! 🥳🇮🇹 Happening on {date} at {location_str}. We'll have music, food, and great company. Don't miss out! #ItalianCulture #CommunityEvent #[RelevantHashtag]"
+        
+        CAPTION TEXT:
         """
     
-    def _format_platform_content(
+    def _format_caption_from_response(
         self,
         platform: str,
         raw_content: str,
-        event_data: Dict[str, Any],
         config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Format and structure the generated content"""
+    ) -> Optional[str]:
+        """Extracts the caption text from the LLM's raw response."""
         
-        try:
-            # Parse the AI response
-            sections = self._parse_ai_response(raw_content)
+        # Expecting the LLM to return just the caption text directly
+        # based on the new prompt instructions.
+        caption_text = raw_content.strip()
+
+        # Basic clean-up: remove "CAPTION:" if it somehow still appears despite instructions
+        if caption_text.upper().startswith("CAPTION:"):
+            caption_text = caption_text[len("CAPTION:"):].strip()
+        
+        # Optional: Further clean-up specific to platform if necessary
+        # e.g., removing extra newlines that might not be ideal for some platforms
+
+        # Validate length (optional, but good practice)
+        if len(caption_text) > config['max_length']:
+            logger.warning(f"{platform.title()} caption generated exceeds max length of {config['max_length']}. Truncating. Original length: {len(caption_text)}")
+            # A more sophisticated truncation might be needed to keep full words/sentences
+            caption_text = self._truncate_content(caption_text, config['max_length'])
             
-            # Extract main content
-            main_content = sections.get('POST', raw_content).strip()
-            hashtags = sections.get('HASHTAGS', '').strip()
-            cta = sections.get('CALL-TO-ACTION', '').strip()
-            posting_time = sections.get('POSTING-TIME', '').strip()
+        if not caption_text:
+            return None
             
-            # Validate length constraints
-            if len(main_content) > config['max_length']:
-                main_content = self._truncate_content(main_content, config['max_length'])
-            
-            # Process hashtags
-            hashtag_list = self._process_hashtags(hashtags, config['hashtag_limit'])
-            
-            # Generate post variants
-            variants = self._generate_content_variants(
-                main_content, hashtag_list, event_data, platform
-            )
-            
-            formatted_content = {
-                'platform': platform,
-                'main_content': main_content,
-                'hashtags': hashtag_list,
-                'call_to_action': cta,
-                'posting_time': posting_time,
-                'character_count': len(main_content),
-                'variants': variants,
-                'engagement_tips': self._get_engagement_tips(platform),
-                'created_at': datetime.utcnow().isoformat()
-            }
-            
-            return formatted_content
-            
-        except Exception as e:
-            logger.error(f"Failed to format {platform} content: {e}")
-            return self._generate_fallback_content(platform, event_data)
-    
-    def _parse_ai_response(self, response: str) -> Dict[str, str]:
-        """Parse structured AI response into sections"""
-        
-        sections = {}
-        current_section = None
-        current_content = []
-        
-        lines = response.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            
-            # Check if this line is a section header
-            if line.endswith(':') and line.upper() in ['POST:', 'HASHTAGS:', 'CALL-TO-ACTION:', 'POSTING-TIME:']:
-                # Store previous section
-                if current_section:
-                    sections[current_section] = '\n'.join(current_content).strip()
-                
-                # Start new section
-                current_section = line[:-1].upper()
-                current_content = []
-            else:
-                # Add to current section
-                if current_section:
-                    current_content.append(line)
-        
-        # Store final section
-        if current_section:
-            sections[current_section] = '\n'.join(current_content).strip()
-        
-        return sections
-    
-    def _process_hashtags(self, hashtags_text: str, limit: int) -> List[str]:
-        """Process and validate hashtags"""
-        
-        if not hashtags_text:
-            return []
-        
-        # Extract hashtags using regex
-        hashtag_pattern = r'#\w+'
-        hashtags = re.findall(hashtag_pattern, hashtags_text)
-        
-        # If no hashtags found with #, try to extract words and add #
-        if not hashtags:
-            words = hashtags_text.replace('#', '').split()
-            hashtags = [f'#{word.strip()}' for word in words if word.strip()]
-        
-        # Clean and validate hashtags
-        cleaned_hashtags = []
-        for tag in hashtags:
-            if not tag.startswith('#'):
-                tag = f'#{tag}'
-            
-            # Remove special characters except alphanumeric and underscore
-            tag = re.sub(r'[^#\w]', '', tag)
-            
-            if len(tag) > 1:  # Must have content after #
-                cleaned_hashtags.append(tag)
-        
-        # Limit number of hashtags
-        return cleaned_hashtags[:limit]
-    
+        return caption_text
+
     def _truncate_content(self, content: str, max_length: int) -> str:
-        """Truncate content while preserving word boundaries"""
-        
+        """Basic truncation to max_length, attempting to keep last word whole."""
         if len(content) <= max_length:
             return content
         
-        # Find the last space before the limit
         truncated = content[:max_length]
+        # Try to avoid cutting mid-word
         last_space = truncated.rfind(' ')
-        
-        if last_space > max_length * 0.8:  # Only truncate at word boundary if close enough
-            truncated = truncated[:last_space]
-        
-        return truncated + '...'
-    
-    def _generate_content_variants(
-        self,
-        main_content: str,
-        hashtags: List[str],
-        event_data: Dict[str, Any],
-        platform: str
-    ) -> List[Dict[str, str]]:
-        """Generate alternative content variations"""
-        
-        variants = []
-        
-        try:
-            # Variant 1: Shorter version
-            short_variant = self._create_short_variant(main_content, event_data)
-            variants.append({
-                'type': 'short',
-                'content': short_variant,
-                'description': 'Concise version for maximum engagement'
-            })
-            
-            # Variant 2: Question-focused version
-            question_variant = self._create_question_variant(main_content, event_data)
-            variants.append({
-                'type': 'question',
-                'content': question_variant,
-                'description': 'Question-based to encourage comments'
-            })
-            
-            # Variant 3: Urgency-focused version (for events with dates)
-            if event_data.get('start_date'):
-                urgency_variant = self._create_urgency_variant(main_content, event_data)
-                variants.append({
-                    'type': 'urgency',
-                    'content': urgency_variant,
-                    'description': 'Creates urgency and encourages immediate action'
-                })
-            
-        except Exception as e:
-            logger.error(f"Failed to generate variants for {platform}: {e}")
-        
-        return variants
-    
-    def _create_short_variant(self, content: str, event_data: Dict[str, Any]) -> str:
-        """Create a shorter, more concise version"""
-        
-        title = event_data.get('title', 'Event')
-        date = self._format_event_date(event_data.get('start_date'))
-        
-        # Extract first sentence or main point
-        sentences = content.split('.')
-        first_sentence = sentences[0].strip() if sentences else content
-        
-        return f"🎉 {title} - {date}! {first_sentence}. Don't miss out!"
-    
-    def _create_question_variant(self, content: str, event_data: Dict[str, Any]) -> str:
-        """Create a question-focused variant to encourage engagement"""
-        
-        title = event_data.get('title', 'Event')
-        event_type = event_data.get('event_type', 'event')
-        
-        questions = {
-            'cultural': f"What's your favorite Italian tradition? Join us at {title} to celebrate our heritage!",
-            'social': f"Looking for a great time with the community? Who's joining us at {title}?",
-            'educational': f"Ready to learn something new? What are you most excited about at {title}?",
-            'fundraiser': f"Want to make a difference in our community? How can we reach our goal together at {title}?",
-            'workshop': f"Ready to develop new skills? What do you hope to learn at {title}?",
-            'conference': f"Who's ready for an inspiring day of learning? What speaker are you most excited to hear at {title}?"
-        }
-        
-        return questions.get(event_type, f"Who's excited about {title}? What are you looking forward to most?")
-    
-    def _create_urgency_variant(self, content: str, event_data: Dict[str, Any]) -> str:
-        """Create a variant that emphasizes urgency"""
-        
-        title = event_data.get('title', 'Event')
-        date = self._format_event_date(event_data.get('start_date'))
-        
-        urgency_phrases = [
-            "Limited spots available!",
-            "Don't miss out!",
-            "Register now!",
-            "Early bird pricing ends soon!",
-            "Spaces filling fast!"
-        ]
-        
-        import random
-        urgency = random.choice(urgency_phrases)
-        
-        return f"⏰ {urgency} {title} is coming up on {date}. Secure your spot today before it's too late! 🎯"
-    
-    def _get_engagement_tips(self, platform: str) -> List[str]:
-        """Get platform-specific engagement tips"""
-        
-        tips = {
-            'instagram': [
-                "Post during peak hours (6-9 PM on weekdays)",
-                "Use Instagram Stories for behind-the-scenes content",
-                "Encourage photo sharing with a branded hashtag",
-                "Respond to comments within the first hour",
-                "Consider creating a Reel for maximum reach"
-            ],
-            'linkedin': [
-                "Post during business hours (9 AM - 5 PM, Tue-Thu)",
-                "Engage with comments professionally and promptly",
-                "Share to relevant LinkedIn groups",
-                "Tag speakers or key participants",
-                "Follow up with attendee connections post-event"
-            ],
-            'twitter': [
-                "Tweet during high engagement times (12-3 PM, 5-6 PM)",
-                "Create a thread for more detailed information",
-                "Retweet with additional comments",
-                "Use trending hashtags when relevant",
-                "Pin the tweet to your profile for visibility"
-            ],
-            'facebook': [
-                "Post during peak engagement (1-4 PM on weekdays)",
-                "Create a Facebook event for better organization",
-                "Encourage event sharing in relevant groups",
-                "Use Facebook Live for real-time updates",
-                "Post in local community groups"
-            ]
-        }
-        
-        return tips.get(platform, [])
-    
-    def _generate_fallback_content(self, platform: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate fallback content when AI generation fails"""
-        
-        title = event_data.get('title', 'Event')
-        date = self._format_event_date(event_data.get('start_date'))
-        location = event_data.get('location', {})
-        
-        if location.get('is_online'):
-            location_str = 'Online'
-        else:
-            location_str = location.get('name', 'Location TBD')
-        
-        fallback_content = {
-            'instagram': {
-                'main_content': f"🎉 Join us for {title}! 📅 {date} 📍 {location_str}\n\nDon't miss this amazing event! ✨",
-                'hashtags': ['#UnitedItalianSocieties', '#Community', '#Event', '#ItalianCulture'],
-                'call_to_action': 'Register now!',
-                'posting_time': '6:00 PM on weekdays'
-            },
-            'linkedin': {
-                'main_content': f"We're excited to announce {title} on {date} at {location_str}. Join our community for this special event.",
-                'hashtags': ['#Community', '#Networking', '#ItalianHeritage'],
-                'call_to_action': 'Register today',
-                'posting_time': '9:00 AM on Tuesday-Thursday'
-            },
-            'twitter': {
-                'main_content': f"🎉 {title} - {date} at {location_str}! Join us!",
-                'hashtags': ['#UIS', '#Community'],
-                'call_to_action': 'Register now!',
-                'posting_time': '12:00 PM or 5:00 PM on weekdays'
-            },
-            'facebook': {
-                'main_content': f"Mark your calendars! {title} is happening on {date} at {location_str}. We'd love to see you there!",
-                'hashtags': ['#UnitedItalianSocieties', '#Community', '#Event'],
-                'call_to_action': 'Let us know if you\'re coming!',
-                'posting_time': '1:00 PM on weekdays'
-            }
-        }
-        
-        base_content = fallback_content.get(platform, fallback_content['facebook'])
-        
-        return {
-            'platform': platform,
-            'main_content': base_content['main_content'],
-            'hashtags': base_content['hashtags'],
-            'call_to_action': base_content['call_to_action'],
-            'posting_time': base_content['posting_time'],
-            'character_count': len(base_content['main_content']),
-            'variants': [],
-            'engagement_tips': self._get_engagement_tips(platform),
-            'created_at': datetime.utcnow().isoformat(),
-            'type': 'fallback',
-            'message': 'Generated using fallback template due to AI generation failure'
-        }
-    
+        if last_space != -1:
+            return truncated[:last_space] + "..."
+        return truncated + "..."
+
     def _format_event_date(self, date_str: Optional[str]) -> str:
         """Format event date for display"""
         
