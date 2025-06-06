@@ -248,14 +248,14 @@ export class WorkflowService {
       const event = await this.prisma.event.findUnique({
         where: { id: eventId },
         include: {
-          creator: {
+          User: {
             select: { email: true, name: true },
           },
         },
       });
 
-      if (!event) {
-        throw new Error('Event not found');
+      if (!event || !event.User) {
+        throw new Error('Event or event creator not found');
       }
 
       // Prepare payload for AI agents
@@ -271,11 +271,11 @@ export class WorkflowService {
           location: {
             name: event.locationName,
             address: event.locationAddress,
-            is_online: event.isOnline,
-            meeting_link: event.meetingLink,
+            is_online: event.locationIsOnline,
+            meeting_link: event.locationMeetingLink,
           },
           ticket_info: {
-            is_free: event.isFree,
+            is_free: event.ticketIsFree,
             price: event.ticketPrice,
             registration_required: event.registrationRequired,
             max_attendees: event.maxAttendees,
@@ -289,8 +289,8 @@ export class WorkflowService {
           include_logo: contentPreferences.includeLogo,
         },
         user_info: {
-          email: event.creator.email,
-          name: event.creator.name,
+          email: event.User.email,
+          name: event.User.name,
         },
       };
 
@@ -458,6 +458,10 @@ export class WorkflowService {
       // WhatsApp Message
       whatsAppMessage: generatedContent.whatsapp_message as string | undefined,
 
+      // Google Drive links
+      googleDriveFolderId: generatedContent.google_drive_folder_id as string | undefined,
+      googleDriveFolderUrl: generatedContent.google_drive_folder_url as string | undefined,
+
       // TODO: Map other content types as they are implemented
     };
 
@@ -476,6 +480,10 @@ export class WorkflowService {
 
       // WhatsApp Message
       whatsAppMessage: generatedContent.whatsapp_message as string | undefined,
+
+      // Google Drive links
+      googleDriveFolderId: generatedContent.google_drive_folder_id as string | undefined,
+      googleDriveFolderUrl: generatedContent.google_drive_folder_url as string | undefined,
 
       // TODO: Map other content types
       generationCount: { increment: 1 },

@@ -40,11 +40,11 @@ export class EventService {
           // Location
           locationName: data.location.name,
           locationAddress: data.location.address,
-          isOnline: data.location.isOnline,
-          meetingLink: data.location.meetingLink,
+          locationIsOnline: data.location.isOnline,
+          locationMeetingLink: data.location.meetingLink,
           
           // Ticketing
-          isFree: data.ticketInfo.isFree,
+          ticketIsFree: data.ticketInfo.isFree,
           ticketPrice: data.ticketInfo.price,
           ticketCurrency: data.ticketInfo.currency,
           registrationRequired: data.ticketInfo.registrationRequired,
@@ -53,21 +53,18 @@ export class EventService {
           
           // Status & Visibility
           status: 'DRAFT',
-          isPublished: false,
+          isPublic: true,
           
           // Metadata
           tags: data.tags || [],
-          customFields: {
-            contentPreferences: data.contentPreferences as any,
-          },
+          customFields: data.contentPreferences as any,
           
-          // Ownership & Consents from EventFormData
+          // Ownership
           createdBy: data.createdBy,
-          consentDataAccuracy: data.consentDataAccuracy,
-          consentAiGeneration: data.consentAiGeneration,
+          userId: data.createdBy, // Link to User relation
         },
         include: {
-          creator: {
+          User: {
             select: {
               id: true,
               name: true,
@@ -266,12 +263,12 @@ export class EventService {
       if (updates.location) {
         updateData.locationName = updates.location.name;
         updateData.locationAddress = updates.location.address;
-        updateData.isOnline = updates.location.isOnline;
-        updateData.meetingLink = updates.location.meetingLink;
+        updateData.locationIsOnline = updates.location.isOnline;
+        updateData.locationMeetingLink = updates.location.meetingLink;
       }
 
       if (updates.ticketInfo) {
-        updateData.isFree = updates.ticketInfo.isFree;
+        updateData.ticketIsFree = updates.ticketInfo.isFree;
         updateData.ticketPrice = updates.ticketInfo.price;
         updateData.registrationRequired = updates.ticketInfo.registrationRequired;
         updateData.maxAttendees = updates.ticketInfo.maxAttendees;
@@ -346,9 +343,9 @@ export class EventService {
       // Set publish date when publishing
       if (status === 'PUBLISHED' && !existingEvent.publishedAt) {
         updateData.publishedAt = new Date();
-        updateData.isPublished = true;
+        updateData.isPublic = true;
       } else if (status !== 'PUBLISHED') {
-        updateData.isPublished = false;
+        updateData.isPublic = false;
       }
 
       const updatedEvent = await this.prisma.event.update({
@@ -396,7 +393,7 @@ export class EventService {
         where: { id: eventId },
         data: {
           status: 'CANCELLED',
-          isPublished: false,
+          isPublic: false,
           updatedAt: new Date(),
         },
       });
@@ -474,11 +471,11 @@ export class EventService {
       location: {
         name: event.locationName,
         address: event.locationAddress,
-        isOnline: event.isOnline,
-        meetingLink: event.meetingLink,
+        isOnline: event.locationIsOnline,
+        meetingLink: event.locationMeetingLink,
       },
       status: event.status,
-      isPublished: event.isPublished,
+      isPublished: event.isPublic,
       createdAt: event.createdAt,
       generatedContent: event.generatedContent,
     };

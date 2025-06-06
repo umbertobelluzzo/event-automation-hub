@@ -99,6 +99,7 @@ export interface APIResponse<T = any> {
       slug: string;
       title: string;
       status: EventStatus;
+      driveFolderUrl?: string;
     };
     workflowSession?: {
       id: string;
@@ -122,5 +123,6 @@ export interface APIResponse<T = any> {
     isPublished: boolean;
     createdAt: Date;
     generatedContent?: any;
+    driveFolderUrl?: string;
   }
   

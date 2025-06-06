@@ -22,7 +22,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  events          Event[]
+  events           Event[]
   workflowSessions WorkflowSession[]
 
   @@map("users")
@@ -39,64 +39,45 @@ enum UserRole {
 // =============================================================================
 
 model Event {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  slug        String    @unique
-  
-  // Event Details
-  eventType   EventType
-  startDate   DateTime
-  endDate     DateTime?
-  timezone    String    @default("Europe/London")
-  
-  // Location
-  locationName    String
-  locationAddress String
-  isOnline        Boolean @default(false)
-  meetingLink     String?
-  coordinates     Json?   // {lat: number, lng: number}
-  
-  // Ticketing
-  isFree              Boolean @default(true)
-  ticketPrice         Float?
-  ticketCurrency      String? @default("GBP")
-  registrationRequired Boolean @default(false)
+  id                   String      @id @default(cuid())
+  title                String
+  description          String      @db.Text
+  slug                 String      @unique
+  eventType            EventType
+  startDate            DateTime
+  endDate              DateTime?
+  timezone             String
+  locationName         String
+  locationAddress      String?
+  locationIsOnline     Boolean     @default(false)
+  locationMeetingLink  String?
+  ticketIsFree         Boolean
+  ticketPrice          Float?
+  ticketCurrency       String?
+  registrationRequired Boolean
+  maxAttendees         Int?
   registrationDeadline DateTime?
-  maxAttendees        Int?
-  currentAttendees    Int     @default(0)
-  
-  // Organizer Info
-  organizerName    String?
-  organizerContact String?
+  status               EventStatus @default(DRAFT)
+  isPublic             Boolean     @default(true)
+  tags                 String[]
+  createdBy            String // User ID
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  deletedAt            DateTime? // For soft deletes
+  driveFolderUrl       String?
 
-  // Consents
-  consentDataAccuracy     Boolean  @default(false)
-  consentAiGeneration     Boolean  @default(false)
-  
-  // Event Status
-  status      EventStatus @default(DRAFT)
-  isPublished Boolean     @default(false)
-  publishedAt DateTime?
-  
-  // AI Processing Status
-  overallProcessingStatus ProcessingStatus @default(PENDING)
-  processingErrorDetails  String?
-  
-  // Metadata
-  tags        String[]
-  customFields Json?      // Flexible additional data
-  
-  // Tracking
-  createdBy String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  creator          User              @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  generatedContent GeneratedContent?
-  workflowSessions WorkflowSession[]
+  contentPreferences Json?
+  customFields       Json?
 
+  sessions         WorkflowSession[]
+  generatedContent GeneratedContent[]
+  User             User?              @relation(fields: [userId], references: [id])
+  userId           String?
+
+  @@index([createdBy])
+  @@index([status])
+  @@index([eventType])
+  @@index([startDate])
   @@map("events")
 }
 
@@ -123,33 +104,33 @@ enum EventStatus {
 // =============================================================================
 
 model GeneratedContent {
-  id                String    @id @default(cuid())
-  eventId           String    @unique // Each event has one set of generated content
-  event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  eventId String @unique // Each event has one set of generated content
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  flyerUrl          String?   // URL of the generated flyer (e.g., S3 link from Templated.io)
-  flyerRenderId     String?   // ID of the render from Templated.io
-  flyerTemplateId   String?   // ID of the template used in Templated.io
-  flyerFormat       String?   // Format of the flyer (e.g., png, jpg)
-  flyerDesignNotes  Json?     // AI-generated design notes or instructions used
+  flyerUrl         String? // URL of the generated flyer (e.g., S3 link from Templated.io)
+  flyerRenderId    String? // ID of the render from Templated.io
+  flyerTemplateId  String? // ID of the template used in Templated.io
+  flyerFormat      String? // Format of the flyer (e.g., png, jpg)
+  flyerDesignNotes Json? // AI-generated design notes or instructions used
 
   // Social Media Content
-  instagramCaption  String?
-  linkedinCaption   String?
-  twitterCaption    String?
-  whatsAppMessage   String?
-  
-  socialMediaPosts  Json?     // Array of social media post objects
-  
+  instagramCaption String?
+  linkedinCaption  String?
+  twitterCaption   String?
+  whatsAppMessage  String?
+
+  socialMediaPosts Json? // Array of social media post objects
+
   // Generated Assets
-  whatsAppDocId     String?
-  
+  whatsAppDocId String?
+
   // External Service IDs
   googleCalendarEventId String?
   clickupTaskId         String?
   googleDriveFolderId   String?
   googleDriveFolderUrl  String?
-  
+
   // Content Preferences (used for regeneration)
   flyerStyle             String?
   targetAudience         String[]
@@ -158,23 +139,23 @@ model GeneratedContent {
   includeLogo            Boolean?
   brandColors            String[]
   additionalInstructions String?
-  
+
   // Generation Metadata
-  generatedAt     DateTime @default(now())
+  generatedAt     DateTime  @default(now())
   lastRegenerated DateTime?
-  generationCount Int      @default(1)
-  
+  generationCount Int       @default(1)
+
   // Individual Task Statuses
-  flyerGenerationStatus         ProcessingStatus @default(PENDING)
-  socialMediaGenerationStatus   ProcessingStatus @default(PENDING)
-  whatsAppGenerationStatus      ProcessingStatus @default(PENDING)
-  calendarEventCreationStatus   ProcessingStatus @default(PENDING)
-  clickUpTaskCreationStatus     ProcessingStatus @default(PENDING)
-  
+  flyerGenerationStatus       ProcessingStatus @default(PENDING)
+  socialMediaGenerationStatus ProcessingStatus @default(PENDING)
+  whatsAppGenerationStatus    ProcessingStatus @default(PENDING)
+  calendarEventCreationStatus ProcessingStatus @default(PENDING)
+  clickUpTaskCreationStatus   ProcessingStatus @default(PENDING)
+
   // Timestamps
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @default(now()) @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
   // No explicit relations here, it's linked via Event
 
   @@map("generated_content")
@@ -187,28 +168,28 @@ model GeneratedContent {
 model WorkflowSession {
   id        String @id @default(cuid())
   sessionId String @unique // For Redis session correlation
-  
+
   // Session Details
   eventId String?
   userId  String
   status  WorkflowStatus @default(PENDING)
-  
+
   // Workflow Progress
-  currentStep     String?
-  completedSteps  String[]
-  failedSteps     String[]
-  
+  currentStep    String?
+  completedSteps String[]
+  failedSteps    String[]
+
   // Processing Metadata
   startedAt        DateTime  @default(now())
   completedAt      DateTime?
   estimatedEndTime DateTime?
   errorMessage     String?
   retryCount       Int       @default(0)
-  
+
   // AI Configuration
   llmModel    String @default("openai/gpt-4o")
-  agentConfig Json?  // Agent-specific configuration
-  
+  agentConfig Json? // Agent-specific configuration
+
   // Relations
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   event Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -232,7 +213,7 @@ enum ProcessingStatus {
   IN_PROGRESS
   COMPLETED
   FAILED
-  SKIPPED 
+  SKIPPED
 }
 
 // =============================================================================
@@ -243,7 +224,7 @@ model SystemConfig {
   id    String @id @default(cuid())
   key   String @unique
   value String
-  
+
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -253,23 +234,23 @@ model SystemConfig {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   userId    String?
   eventId   String?
   sessionId String?
-  
-  action      String // 'event_created', 'workflow_started', 'content_generated', etc.
-  entityType  String // 'event', 'workflow', 'user', etc.
-  entityId    String?
-  
+
+  action     String // 'event_created', 'workflow_started', 'content_generated', etc.
+  entityType String // 'event', 'workflow', 'user', etc.
+  entityId   String?
+
   // Change Details
   beforeData Json?
   afterData  Json?
-  
+
   // Request Context
-  ipAddress  String?
-  userAgent  String?
-  
+  ipAddress String?
+  userAgent String?
+
   timestamp DateTime @default(now())
 
   @@map("audit_logs")
@@ -282,23 +263,23 @@ model AuditLog {
 model EventMetrics {
   id      String @id @default(cuid())
   eventId String
-  
+
   // Engagement Metrics
   views           Int @default(0)
   registrations   Int @default(0)
   actualAttendees Int @default(0)
-  
+
   // Social Media Metrics
   instagramLikes  Int @default(0)
   instagramShares Int @default(0)
   linkedinViews   Int @default(0)
   linkedinLikes   Int @default(0)
-  
+
   // Workflow Metrics
   generationTimeMs    Int?
   humanReviewTimeMs   Int?
   totalProcessingTime Int?
-  
+
   // Timestamps
   recordedAt DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -309,22 +290,22 @@ model EventMetrics {
 model WorkflowMetrics {
   id        String @id @default(cuid())
   sessionId String @unique
-  
+
   // Performance Metrics
-  totalDurationMs      Int?
-  aiProcessingTimeMs   Int?
-  humanReviewTimeMs    Int?
-  serviceCallsCount    Int @default(0)
-  failedServiceCalls   Int @default(0)
-  
+  totalDurationMs    Int?
+  aiProcessingTimeMs Int?
+  humanReviewTimeMs  Int?
+  serviceCallsCount  Int  @default(0)
+  failedServiceCalls Int  @default(0)
+
   // Cost Tracking
   llmTokensUsed    Int?
   estimatedCostUsd Float?
-  
+
   // Quality Metrics
   humanApprovalRate Float? // 0.0 to 1.0
   regenerationCount Int    @default(0)
-  
+
   recordedAt DateTime @default(now())
 
   @@map("workflow_metrics")

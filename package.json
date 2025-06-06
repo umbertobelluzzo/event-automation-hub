@@ -73,6 +73,7 @@
     "postinstall": "pnpm db:generate || echo 'Database not available during install'"
   },
   "dependencies": {
+    "@prisma/client": "^6.9.0",
     "concurrently": "^8.2.2",
     "pg": "^8.16.0"
   },

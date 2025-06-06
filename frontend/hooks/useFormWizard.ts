@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { EventFormData, FormStepInfo, FormValidationError } from '@/shared/types';
 
 // =============================================================================
@@ -105,6 +106,7 @@ export interface UseFormWizardReturn {
 }
 
 const useFormWizard = (): UseFormWizardReturn => {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<EventFormData>(getDefaultFormData);
   const [errors, setErrors] = useState<FormValidationError[]>([]);
@@ -231,42 +233,66 @@ const useFormWizard = (): UseFormWizardReturn => {
     }
 
     setIsSubmitting(true);
+    setErrors([]); // Clear previous errors
     
     try {
-      // TODO: Implement actual API call
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:4000';
-      const endpoint = `${backendUrl.replace(/\/api$|\/$/, '')}/api/events/create`; // Remove trailing /api or / and then add /api/events/create
+      const endpoint = `${backendUrl.replace(/\/api$|\/$/, '')}/api/events/create`;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Add Authorization header if your API requires it
+          // 'Authorization': `Bearer ${yourAuthToken}`,
         },
         body: JSON.stringify(formData),
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to create event');
+        let message = 'Failed to create event.';
+        if (responseData && responseData.message) {
+          message = responseData.message;
+        }
+        if (responseData && responseData.errors) {
+          // Map backend errors to frontend format if possible
+          const backendErrors = responseData.errors.map((err: any) => ({
+            field: err.field || 'general',
+            message: err.message,
+            step: FORM_STEPS.findIndex(s => err.field?.startsWith(s.id)) || currentStep, // Best guess for step
+          }));
+          setErrors(backendErrors);
+          // Potentially go to the first step with a server-side validation error
+          if (backendErrors.length > 0) {
+             const firstErrorStep = Math.min(...backendErrors.map((e: FormValidationError) => e.step));
+             setCurrentStep(firstErrorStep);
+          }
+        }
+        throw new Error(message);
       }
 
-      const result = await response.json();
-      
-      if (result.success) {
-        // TODO: Redirect to success page or AI workflow status
-        console.log('Event created successfully:', result);
+      // Assuming the backend returns { success: true, event: { id: string, ... } }
+      if (responseData.success && responseData.event && responseData.event.id) {
+        const eventId = responseData.event.id;
+        // resetForm(); // Optionally reset form
+        router.push(`/create-event/success/${eventId}`);
       } else {
-        setErrors(result.errors || []);
+        // Handle cases where response is OK but data is not as expected
+        setErrors([{ field: 'general', message: 'Unexpected response from server.', step: currentStep }]);
+        throw new Error('Unexpected response from server after event creation.');
       }
-    } catch (error) {
-      console.error('Form submission error:', error);
-      setErrors([{
-        field: 'general',
-        message: 'Failed to create event. Please try again.',
-        step: currentStep,
-      }]);
+
+    } catch (error: any) {
+      console.error('Submission failed:', error);
+      // If errors were not set by specific backend validation, set a general error
+      if (errors.length === 0) {
+        setErrors([{ field: 'general', message: error.message || 'An unexpected error occurred.', step: currentStep }]);
+      }
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, validateStep, currentStep]);
+  }, [formData, validateStep, router, currentStep, errors.length]); // Added router and errors.length to dependencies
 
   const resetForm = useCallback(() => {
     setFormData(getDefaultFormData());

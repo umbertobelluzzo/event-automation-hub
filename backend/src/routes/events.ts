@@ -330,6 +330,51 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
 });
 
 // =============================================================================
+// Event Status & Workflow Routes
+// =============================================================================
+
+/**
+ * GET /api/events/:eventId/status
+ * Returns the current status of the AI content generation workflow
+ */
+router.get('/:eventId/status', async (req: AuthenticatedRequest, res: express.Response<APIResponse>) => {
+  const { eventId } = req.params;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+
+  try {
+    // Optional: Validate that the user has access to this event
+    const hasAccess = await eventService.validateEventOwnership(eventId, userId);
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    
+    const workflowStatus = await workflowService.getWorkflowStatus(eventId);
+
+    if (!workflowStatus) {
+      return res.status(404).json({
+        success: false,
+        message: 'Workflow status not found for this event. It may not have started yet.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: workflowStatus,
+    });
+  } catch (error) {
+    logger.error(`Failed to get workflow status for event ${eventId}:`, error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve workflow status.',
+    });
+  }
+});
+
+// =============================================================================
 // Workflow Status Routes
 // =============================================================================
 
