@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,42 +40,58 @@ export default function EventCreationSuccessPage() {
 
   const [statusResponse, setStatusResponse] = useState<EventStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pollingTimeoutId, setPollingTimeoutId] = useState<NodeJS.Timeout | null>(null);
-
+  const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     if (!eventId) return;
 
     const fetchStatus = async () => {
       try {
         const response = await fetch(`/api/events/${eventId}/status`);
+
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to fetch event status');
+          const errorText = await response.text();
+          let errorMessage;
+          try {
+            const errorPayload = JSON.parse(errorText);
+            errorMessage = errorPayload.error || errorPayload.message || `Request failed: ${response.status}`;
+          } catch (e) {
+            errorMessage = `Request failed with status ${response.status}. See console for details.`;
+          }
+          throw new Error(errorMessage);
         }
+
         const apiResponse = await response.json();
         if (!apiResponse.success) {
           throw new Error(apiResponse.message || 'API request failed');
         }
-        setStatusResponse(apiResponse.data);
+        
+        const eventStatus: EventStatusResponse = apiResponse.data;
+        setStatusResponse(eventStatus);
         setError(null);
 
-        if (apiResponse.data.workflow?.status === 'COMPLETED' || apiResponse.data.workflow?.status === 'FAILED') {
-          if (pollingTimeoutId) clearTimeout(pollingTimeoutId);
-        } else {
-          const timeoutId = setTimeout(fetchStatus, POLLING_INTERVAL);
-          setPollingTimeoutId(timeoutId);
+        // Clear previous timeout before setting a new one
+        if (pollingTimeoutRef.current) {
+          clearTimeout(pollingTimeoutRef.current);
         }
+
+        if (eventStatus.workflow?.status === 'PENDING' || eventStatus.workflow?.status === 'IN_PROGRESS') {
+          pollingTimeoutRef.current = setTimeout(fetchStatus, POLLING_INTERVAL);
+        }
+
       } catch (err: any) {
         setError(err.message || 'An unexpected error occurred.');
-        if (pollingTimeoutId) clearTimeout(pollingTimeoutId);
         console.error("Polling error:", err);
       }
     };
 
     fetchStatus();
 
+    // Cleanup function
     return () => {
-      if (pollingTimeoutId) clearTimeout(pollingTimeoutId);
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+      }
     };
   }, [eventId]);
 
@@ -83,26 +99,46 @@ export default function EventCreationSuccessPage() {
     if (!statusResponse?.workflow) {
       return <Progress value={10} className="w-full" />;
     }
-    const { status, currentStep, completedSteps, failedSteps } = statusResponse.workflow;
-    // Basic progress calculation
-    const totalSteps = 5; // Estimate: validate, content_gen, drive_upload, notifications, complete
-    let progressValue = (completedSteps.length / totalSteps) * 100;
-    if (status === 'COMPLETED') progressValue = 100;
-    if (status === 'IN_PROGRESS' && progressValue < 90) progressValue = Math.max(10, progressValue); // Keep it moving a bit
+    const { status, completedSteps } = statusResponse.workflow;
+    const totalSteps = 7; // Matching the backend
+
+    if (status === 'COMPLETED') {
+       return (
+        <div className="space-y-2">
+          <Progress value={100} className="w-full" />
+          <p className="text-sm text-muted-foreground">
+            Status: {status}
+          </p>
+        </div>
+      );
+    }
+
+    const stepsDone = Array.isArray(completedSteps) ? completedSteps.length : 0;
+    let progressValue = (stepsDone / totalSteps) * 100;
+
+    if (status === 'IN_PROGRESS') {
+      progressValue = Math.max(10, progressValue);
+    } else if (status === 'FAILED') {
+      progressValue = Math.max(10, progressValue);
+    } else {
+      progressValue = Math.max(5, progressValue); // Default small progress
+    }
 
     return (
       <div className="space-y-2">
         <Progress value={progressValue} className="w-full" />
         <p className="text-sm text-muted-foreground">
-          Status: {status} {status === 'IN_PROGRESS' && currentStep ? `(${currentStep})` : ''}
+          Status: {status || 'Initializing...'}
         </p>
       </div>
     );
   };
 
   const renderContentGenerationStatus = () => {
-    if (!statusResponse?.contentGenerationStatus) return null;
-    const { flyer, social, whatsapp, calendar, clickup } = statusResponse.contentGenerationStatus;
+    const contentStatus = statusResponse?.contentGenerationStatus;
+    if (!contentStatus) return null;
+    
+    const { flyer, social, whatsapp, calendar, clickup } = contentStatus;
 
     const statusMap: { [key: string]: { icon: React.ReactNode, text: string } } = {
         PENDING: { icon: <Loader2 className="h-4 w-4 animate-spin mr-1" />, text: "Pending" },
@@ -187,17 +223,17 @@ export default function EventCreationSuccessPage() {
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-primary/5 via-background to-background p-4">
       <Card className="w-full max-w-lg shadow-2xl">
         <CardHeader className="text-center">
-          {isCompleted && statusResponse.driveFolderUrl && <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />}
+          {isCompleted && <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />}
           {isFailed && <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />}
           {!(isCompleted || isFailed) && <Loader2 className="w-16 h-16 animate-spin text-primary mx-auto mb-4" />}
           
           <CardTitle className="text-3xl font-bold">
-            {isCompleted && statusResponse.driveFolderUrl ? 'Event Materials Ready!' :
+            {isCompleted ? 'Event Materials Ready!' :
              isFailed ? 'Event Creation Failed' :
              'Generating Your Event...'}
           </CardTitle>
           <CardDescription className="text-lg">
-            {isCompleted && statusResponse.driveFolderUrl ? 'All your event materials have been generated and saved.' :
+            {isCompleted ? 'All your event materials have been generated and saved.' :
              isFailed ? statusResponse.workflow?.errorMessage || 'An unexpected error occurred during event generation.' :
              'Our AI is working on creating your event assets. Please wait a moment.'}
           </CardDescription>

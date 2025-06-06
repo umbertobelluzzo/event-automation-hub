@@ -9,7 +9,8 @@ import { WorkflowService } from '../services/workflow-service';
 import type { EventFormData, APIResponse, EventCreationResponse } from '../types';
 import type { AuthenticatedRequest } from '../middleware/auth';
 
-const router: Router = express.Router();
+const protectedRouter: Router = express.Router();
+export const publicRouter: Router = express.Router();
 const prisma = new PrismaClient();
 const logger = createLogger('events-routes');
 const eventService = new EventService(prisma);
@@ -85,7 +86,7 @@ const eventFormSchema = z.object({
  * POST /api/events/create
  * Creates a new event from form wizard data and triggers AI workflow
  */
-router.post('/create', validateRequest(eventFormSchema), async (req: AuthenticatedRequest, res) => {
+protectedRouter.post('/create', validateRequest(eventFormSchema), async (req: AuthenticatedRequest, res) => {
   const userId = req.user?.id;
   if (!userId) {
     res.status(401).json({
@@ -164,6 +165,62 @@ router.post('/create', validateRequest(eventFormSchema), async (req: Authenticat
 });
 
 // =============================================================================
+// Event Status & Workflow Routes (Specific Before Generic)
+// =============================================================================
+
+/**
+ * GET /api/events/:eventId/status
+ * Returns the current status of the AI content generation workflow.
+ * NOTE: This is defined before '/:id' to ensure correct route matching.
+ */
+publicRouter.get('/:eventId/status', async (req: express.Request, res: express.Response<APIResponse>) => {
+  const { eventId } = req.params;
+
+  try {
+    const workflowStatus = await workflowService.getWorkflowStatus(eventId);
+
+    if (!workflowStatus) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          eventId,
+          workflow: {
+            status: 'PENDING',
+            currentStep: 'Initializing',
+            completedSteps: [],
+            failedSteps: [],
+          },
+        },
+      });
+    }
+
+    const responseData = {
+      eventId: eventId,
+      workflow: {
+        status: workflowStatus.status,
+        currentStep: workflowStatus.currentStep,
+        completedSteps: workflowStatus.completedSteps,
+        failedSteps: workflowStatus.failedSteps,
+        errorMessage: workflowStatus.errorMessage,
+      },
+      driveFolderUrl: (workflowStatus as any).driveFolderUrl,
+      contentGenerationStatus: (workflowStatus as any).contentGenerationStatus,
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: responseData,
+    });
+  } catch (error) {
+    logger.error(`Failed to get workflow status for event ${eventId}:`, error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve workflow status.',
+    });
+  }
+});
+
+// =============================================================================
 // Event Listing Routes
 // =============================================================================
 
@@ -171,7 +228,7 @@ router.post('/create', validateRequest(eventFormSchema), async (req: Authenticat
  * GET /api/events
  * Returns paginated list of user's events
  */
-router.get('/', async (req: AuthenticatedRequest, res) => {
+protectedRouter.get('/', async (req: AuthenticatedRequest, res) => {
   const userId = req.user?.id;
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
@@ -205,7 +262,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
  * GET /api/events/:id
  * Returns single event details
  */
-router.get('/:id', async (req: AuthenticatedRequest, res) => {
+protectedRouter.get('/:id', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -244,7 +301,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
  * PUT /api/events/:id
  * Updates an existing event
  */
-router.put('/:id', validateRequest(eventFormSchema.partial()), async (req: AuthenticatedRequest, res) => {
+protectedRouter.put('/:id', validateRequest(eventFormSchema.partial()), async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -286,7 +343,7 @@ router.put('/:id', validateRequest(eventFormSchema.partial()), async (req: Authe
  * PATCH /api/events/:id/status
  * Updates event status (publish, unpublish, cancel)
  */
-router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
+protectedRouter.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const userId = req.user?.id;
@@ -330,51 +387,6 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
 });
 
 // =============================================================================
-// Event Status & Workflow Routes
-// =============================================================================
-
-/**
- * GET /api/events/:eventId/status
- * Returns the current status of the AI content generation workflow
- */
-router.get('/:eventId/status', async (req: AuthenticatedRequest, res: express.Response<APIResponse>) => {
-  const { eventId } = req.params;
-  const userId = req.user?.id;
-
-  if (!userId) {
-    return res.status(401).json({ success: false, message: 'Authentication required' });
-  }
-
-  try {
-    // Optional: Validate that the user has access to this event
-    const hasAccess = await eventService.validateEventOwnership(eventId, userId);
-    if (!hasAccess) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
-    
-    const workflowStatus = await workflowService.getWorkflowStatus(eventId);
-
-    if (!workflowStatus) {
-      return res.status(404).json({
-        success: false,
-        message: 'Workflow status not found for this event. It may not have started yet.',
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: workflowStatus,
-    });
-  } catch (error) {
-    logger.error(`Failed to get workflow status for event ${eventId}:`, error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve workflow status.',
-    });
-  }
-});
-
-// =============================================================================
 // Workflow Status Routes
 // =============================================================================
 
@@ -382,7 +394,7 @@ router.get('/:eventId/status', async (req: AuthenticatedRequest, res: express.Re
  * GET /api/events/:id/workflow
  * Returns AI workflow status for an event
  */
-router.get('/:id/workflow', async (req: AuthenticatedRequest, res) => {
+protectedRouter.get('/:id/workflow', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -418,7 +430,7 @@ router.get('/:id/workflow', async (req: AuthenticatedRequest, res) => {
  * POST /api/events/:id/regenerate
  * Triggers AI content regeneration for an event
  */
-router.post('/:id/regenerate', async (req: AuthenticatedRequest, res) => {
+protectedRouter.post('/:id/regenerate', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { contentType } = req.body; // 'flyer', 'social', 'whatsapp', or 'all'
@@ -462,7 +474,7 @@ router.post('/:id/regenerate', async (req: AuthenticatedRequest, res) => {
  * DELETE /api/events/:id
  * Deletes an event (soft delete)
  */
-router.delete('/:id', async (req: AuthenticatedRequest, res) => {
+protectedRouter.delete('/:id', async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -494,4 +506,4 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-export default router;
+export default protectedRouter;

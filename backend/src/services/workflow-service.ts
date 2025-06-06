@@ -1,4 +1,4 @@
-import { PrismaClient, WorkflowStatus } from '@prisma/client';
+import { PrismaClient, WorkflowStatus, ProcessingStatus } from '@prisma/client';
 import { createLogger } from '../utils/logger';
 import { RedisService } from './redis-service';
 import axios from 'axios';
@@ -89,9 +89,8 @@ export class WorkflowService {
   /**
    * Gets current workflow status for an event
    */
-  async getWorkflowStatus(eventId: string): Promise<WorkflowProgress | null> {
+  async getWorkflowStatus(eventId: string): Promise<any | null> {
     try {
-      // Get latest workflow session for event
       const workflowSession = await this.prisma.workflowSession.findFirst({
         where: { eventId },
         orderBy: { startedAt: 'desc' },
@@ -104,29 +103,43 @@ export class WorkflowService {
         },
       });
 
-      if (!workflowSession) {
+      if (!workflowSession || !workflowSession.event) {
         return null;
       }
 
-      // Try to get real-time progress from Redis first
-      const redisProgress = await this.redis.getWorkflowProgress(workflowSession.sessionId);
+      const { event } = workflowSession;
+      const driveFolderUrl = event.driveFolderUrl;
       
-      if (redisProgress) {
-        return {
-          ...redisProgress,
-          generatedContent: workflowSession.event?.generatedContent || [],
+      let contentGenerationStatus = {};
+      // The schema indicates event.generatedContent is an array, but the logic implies one-to-one.
+      // We'll safely access the first element if it exists.
+      if (event.generatedContent && event.generatedContent.length > 0) {
+        const content = event.generatedContent[0];
+        contentGenerationStatus = {
+          flyer: content.flyerGenerationStatus,
+          social: content.socialMediaGenerationStatus,
+          whatsapp: content.whatsAppGenerationStatus,
+          calendar: content.calendarEventCreationStatus,
+          clickup: content.clickUpTaskCreationStatus,
         };
       }
 
-      // Fallback to database data
-      return {
+      const redisProgress = await this.redis.getWorkflowProgress(workflowSession.sessionId);
+      
+      const workflowDetails = redisProgress || {
         sessionId: workflowSession.sessionId,
         status: workflowSession.status,
         currentStep: workflowSession.currentStep || '',
         completedSteps: workflowSession.completedSteps,
         failedSteps: workflowSession.failedSteps,
         errorMessage: workflowSession.errorMessage || undefined,
-        generatedContent: workflowSession.event?.generatedContent || [],
+      };
+
+      return {
+        eventId: workflowSession.eventId,
+        workflow: workflowDetails,
+        driveFolderUrl,
+        contentGenerationStatus,
       };
     } catch (error) {
       logger.error(`Failed to get workflow status for event ${eventId}:`, error);
@@ -441,6 +454,15 @@ export class WorkflowService {
       keys: Object.keys(generatedContent),
     });
 
+    const statuses = {
+      flyerGenerationStatus: (generatedContent.flyer_url ? 'COMPLETED' : 'SKIPPED') as ProcessingStatus,
+      socialMediaGenerationStatus: (generatedContent.instagram_caption || generatedContent.linkedin_caption || generatedContent.twitter_caption ? 'COMPLETED' : 'SKIPPED') as ProcessingStatus,
+      whatsAppGenerationStatus: (generatedContent.whatsapp_message ? 'COMPLETED' : 'SKIPPED') as ProcessingStatus,
+      // The following are placeholders until the agent supports them
+      calendarEventCreationStatus: (generatedContent.google_calendar_event_url ? 'COMPLETED' : 'SKIPPED') as ProcessingStatus,
+      clickUpTaskCreationStatus: (generatedContent.clickup_task_url ? 'COMPLETED' : 'SKIPPED') as ProcessingStatus,
+    };
+
     const dataToCreate: Prisma.GeneratedContentCreateInput = {
       event: { connect: { id: eventId } },
       flyerUrl: generatedContent.flyer_url as string | undefined,
@@ -462,7 +484,7 @@ export class WorkflowService {
       googleDriveFolderId: generatedContent.google_drive_folder_id as string | undefined,
       googleDriveFolderUrl: generatedContent.google_drive_folder_url as string | undefined,
 
-      // TODO: Map other content types as they are implemented
+      ...statuses,
     };
 
     const dataToUpdate: Prisma.GeneratedContentUpdateInput = {
@@ -485,6 +507,9 @@ export class WorkflowService {
       googleDriveFolderId: generatedContent.google_drive_folder_id as string | undefined,
       googleDriveFolderUrl: generatedContent.google_drive_folder_url as string | undefined,
 
+      // Update statuses based on content presence
+      ...statuses,
+      
       // TODO: Map other content types
       generationCount: { increment: 1 },
       lastRegenerated: new Date(),

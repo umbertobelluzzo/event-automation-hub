@@ -479,12 +479,38 @@ class WorkflowOrchestrator:
         return state
     
     async def _setup_google_drive(self, state: WorkflowState) -> WorkflowState:
-        logger.info(f"[{state.session_id}] Setting up Google Drive (placeholder)..." )
+        """Sets up Google Drive folder and uploads assets using the GoogleDriveAgent"""
+        logger.info(f"[{state.session_id}] Setting up Google Drive...")
         state.current_step = "setup_google_drive"
-        state.completed_steps.append("setup_google_drive")
+
+        try:
+            drive_result = await self.google_drive_agent.setup_event_folder(
+                event_data=state.event_data,
+                generated_content=state.generated_content
+            )
+
+            if drive_result.get('error'):
+                logger.error(f"[{state.session_id}] ❌ GoogleDriveAgent returned an error: {drive_result['error']}")
+                state.failed_steps.append("setup_google_drive")
+                state.messages.append(AIMessage(content=f"Google Drive setup encountered an issue: {drive_result['error']}"))
+            else:
+                state.generated_content["google_drive_folder_id"] = drive_result.get("folder_id")
+                state.generated_content["google_drive_folder_url"] = drive_result.get("folder_url")
+                logger.info(f"[{state.session_id}] ✅ Google Drive setup successful. Folder URL: {drive_result.get('folder_url')}")
+                state.completed_steps.append("setup_google_drive")
+                state.messages.append(AIMessage(content="Google Drive folder and assets setup successfully."))
+
+        except Exception as e:
+            logger.error(f"[{state.session_id}] ❌ Exception during Google Drive setup: {e}", exc_info=True)
+            state.failed_steps.append("setup_google_drive")
+            error_msg = f"Google Drive setup error: {str(e)}"
+            state.error_message = state.error_message + f"; {error_msg}" if state.error_message else error_msg
+            state.messages.append(AIMessage(content=error_msg))
+
         return state
     
     async def _create_calendar_event(self, state: WorkflowState) -> WorkflowState:
+        """Creates a Google Calendar event (placeholder)"""
         logger.info(f"[{state.session_id}] Creating calendar event (placeholder)..." )
         state.current_step = "create_calendar_event"
         state.completed_steps.append("create_calendar_event")

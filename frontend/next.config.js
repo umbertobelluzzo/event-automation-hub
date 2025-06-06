@@ -23,14 +23,27 @@ const nextConfig = {
     },
     // API routes configuration for backend/agents proxying
     async rewrites() {
+      const backendUrl = (process.env.BACKEND_URL || 'http://localhost:4000').replace(/\/api\/?$/, '');
+      const agentsUrl = process.env.AGENTS_URL || 'http://localhost:8000';
+
       return [
-        {
-          source: '/api/backend/:path*',
-          destination: `${process.env.BACKEND_URL || 'http://localhost:4000'}/:path*`,
-        },
+        // Proxy for AI agent services
         {
           source: '/api/agents/:path*',
-          destination: `${process.env.AGENTS_URL || 'http://localhost:8000'}/:path*`,
+          destination: `${agentsUrl}/:path*`,
+        },
+        // Specific proxies for backend services to avoid catching /api/auth
+        {
+          source: '/api/events/:path*',
+          destination: `${backendUrl}/api/events/:path*`,
+        },
+        {
+          source: '/api/workflow/:path*',
+          destination: `${backendUrl}/api/workflow/:path*`,
+        },
+        {
+          source: '/api/health',
+          destination: `${backendUrl}/api/health`,
         },
       ];
     },

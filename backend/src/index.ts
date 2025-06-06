@@ -1,8 +1,8 @@
 // backend/src/index.ts - Fixed version
-import express, { Application } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+// import rateLimit from 'express-rate-limit'; // Removing rate limiting for now
 import dotenv from 'dotenv';
 import { createLogger } from './utils/logger';
 import { errorHandler } from './middleware/error-handler';
@@ -12,7 +12,7 @@ import { validateEnv } from './utils/validate-env';
 import path from 'path';
 
 // Route imports
-import eventRoutes from './routes/events';
+import protectedEventRoutes, { publicRouter as publicEventRouter } from './routes/events';
 // import authRoutes from './routes/auth'; // Removed, no default export
 import healthRoutes from './routes/health';
 import workflowRoutes from './routes/workflowRoutes';
@@ -71,7 +71,8 @@ app.use(cors({
   optionsSuccessStatus: 200,
 }));
 
-// Rate limiting
+// Rate limiting - Temporarily disabled to resolve polling issue
+/*
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
@@ -81,8 +82,8 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
 app.use('/api/', limiter);
+*/
 
 // =============================================================================
 // Middleware Setup
@@ -105,11 +106,14 @@ app.set('trust proxy', 1);
 // Health check routes (no auth required)
 app.use('/api/health', healthRoutes);
 
+// Public event routes (no auth required)
+app.use('/api/events', publicEventRouter);
+
 // Authentication routes (public)
 // app.use('/api/auth', authRoutes); // Removed, no default export
 
 // Protected routes
-app.use('/api/events', authMiddleware, eventRoutes);
+app.use('/api/events', authMiddleware, protectedEventRoutes);
 
 // Workflow callback routes (requires simple API key auth)
 app.use('/api/workflow', workflowRoutes);

@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 import json
 import base64
+import httpx
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -307,138 +308,105 @@ class GoogleDriveAgent:
         generated_content: Dict[str, Any],
         event_data: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Upload generated content files to appropriate folders"""
+        """Upload all generated content files to their respective subfolders."""
         
         uploaded_files = []
         
-        try:
-            # Upload flyer to promotional folder
-            if generated_content.get('flyer_url'):
-                flyer_file = await self._upload_flyer_reference(
-                    subfolders['promotional']['id'],
-                    generated_content,
-                    event_data
-                )
-                if flyer_file:
-                    uploaded_files.append(flyer_file)
+        # Upload flyer image
+        flyer_upload = await self._upload_flyer_image(
+            subfolders.get('promotional', {}).get('id'),
+            generated_content,
+            event_data
+        )
+        if flyer_upload:
+            uploaded_files.append(flyer_upload)
             
-            # Create social media content document
-            if any(key in generated_content for key in ['instagram_caption', 'linkedin_caption', 'facebook_caption']):
-                social_doc = await self._create_social_media_document(
-                    subfolders['communications']['id'],
-                    generated_content,
-                    event_data
-                )
-                if social_doc:
-                    uploaded_files.append(social_doc)
+        # Create social media content document
+        social_doc = await self._create_social_media_document(
+            subfolders['communications']['id'],
+            generated_content,
+            event_data
+        )
+        if social_doc:
+            uploaded_files.append(social_doc)
             
-            # Create WhatsApp message document
-            if generated_content.get('whatsapp_message'):
-                whatsapp_doc = await self._create_whatsapp_document(
-                    subfolders['communications']['id'],
-                    generated_content,
-                    event_data
-                )
-                if whatsapp_doc:
-                    uploaded_files.append(whatsapp_doc)
-            
-            # Create event summary document
-            summary_doc = await self._create_event_summary_document(
-                subfolders['documentation']['id'],
-                event_data,
-                generated_content
+        # Create WhatsApp message document
+        if generated_content.get('whatsapp_message'):
+            whatsapp_doc = await self._create_whatsapp_document(
+                subfolders['communications']['id'],
+                generated_content,
+                event_data
             )
-            if summary_doc:
-                uploaded_files.append(summary_doc)
+            if whatsapp_doc:
+                uploaded_files.append(whatsapp_doc)
             
-            logger.info(f"✅ Uploaded {len(uploaded_files)} content files")
-            return uploaded_files
+        # Create event summary document
+        summary_doc = await self._create_event_summary_document(
+            subfolders['documentation']['id'],
+            event_data,
+            generated_content
+        )
+        if summary_doc:
+            uploaded_files.append(summary_doc)
             
-        except Exception as e:
-            logger.error(f"Failed to upload generated content: {e}")
-            return uploaded_files
+        logger.info(f"✅ Uploaded {len(uploaded_files)} content files")
+        return uploaded_files
     
-    async def _upload_flyer_reference(
+    async def _upload_flyer_image(
         self,
         folder_id: str,
         generated_content: Dict[str, Any],
         event_data: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
-        """Create a reference document for the flyer"""
-        
+        """Downloads the flyer from its URL and uploads it as a PNG to Google Drive."""
+        flyer_url = generated_content.get("flyer_url")
+        if not folder_id or not flyer_url:
+            logger.warning("Missing folder_id or flyer_url, cannot upload flyer image.")
+            return None
+
+        event_title = event_data.get("title", "Untitled Event").replace(" ", "_")
+        file_name = f"{event_title}_flyer.png"
+
         try:
-            flyer_url = generated_content.get('flyer_url', '')
-            canva_id = generated_content.get('flyer_canva_id', '')
-            design_notes = generated_content.get('flyer_design_notes', '')
+            # Asynchronously download the image
+            async with httpx.AsyncClient() as client:
+                response = await client.get(flyer_url)
+                response.raise_for_status()
+                image_data = response.content
+
+            # Prepare media for upload
+            fh = io.BytesIO(image_data)
+            media = MediaIoBaseUpload(fh, mimetype='image/png', resumable=True)
             
-            # Create content for the reference document
-            content = f"""EVENT FLYER INFORMATION
-Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}
-
-Event: {event_data.get('title', 'Untitled Event')}
-
-FLYER DETAILS:
-- Canva Design URL: {flyer_url}
-- Canva Design ID: {canva_id}
-- Style: {event_data.get('content_preferences', {}).get('flyer_style', 'professional')}
-
-DESIGN NOTES:
-{design_notes}
-
-USAGE INSTRUCTIONS:
-1. Access the flyer at the Canva URL above
-2. Download in required formats (PNG, PDF, etc.)
-3. Use for social media, print materials, and web promotion
-4. Maintain consistent branding across all channels
-
-PRINT SPECIFICATIONS:
-- Recommended size: 8.5" x 11" or 11" x 17"
-- Resolution: 300 DPI for print
-- Format: PDF for professional printing
-
-DIGITAL SPECIFICATIONS:
-- Social media: 1080x1080 px (square)
-- Web: 1920x1080 px (landscape)
-- Email: 600px width maximum
-"""
-            
-            # Create Google Doc
-            doc_metadata = {
-                'name': f'{event_data.get("title", "Event")} - Flyer Information',
-                'parents': [folder_id],
-                'mimeType': 'application/vnd.google-apps.document'
+            file_metadata = {
+                'name': file_name,
+                'parents': [folder_id]
             }
             
-            doc = self.service.files().create(
-                body=doc_metadata,
-                fields='id, name, webViewLink'
-            ).execute()
-            
-            # Add content to the document
-            from googleapiclient.discovery import build
-            docs_service = build('docs', 'v1', credentials=self.credentials)
-            
-            requests = [{
-                'insertText': {
-                    'location': {'index': 1},
-                    'text': content
-                }
-            }]
-            
-            docs_service.documents().batchUpdate(
-                documentId=doc.get('id'),
-                body={'requests': requests}
-            ).execute()
-            
+            # Upload the file
+            loop = asyncio.get_running_loop()
+            file = await loop.run_in_executor(
+                None,
+                lambda: self.service.files().create(
+                    body=file_metadata,
+                    media_body=media,
+                    fields='id, name, webViewLink'
+                ).execute()
+            )
+
+            logger.info(f"✅ Successfully uploaded flyer '{file_name}' to Google Drive.")
             return {
-                'id': doc.get('id'),
-                'name': doc.get('name'),
-                'url': doc.get('webViewLink'),
-                'type': 'flyer_reference'
+                'id': file.get('id'),
+                'name': file.get('name'),
+                'url': file.get('webViewLink'),
+                'type': 'flyer_image'
             }
-            
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Failed to download flyer image from {flyer_url}: {e}")
+            return None
         except Exception as e:
-            logger.error(f"Failed to create flyer reference document: {e}")
+            logger.error(f"Failed to upload flyer image to Google Drive: {e}")
             return None
     
     async def _create_social_media_document(
